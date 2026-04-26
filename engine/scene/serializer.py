@@ -31,6 +31,7 @@ from engine.ecs import World
 from engine.components.transform import Transform
 from engine.components.mesh import MeshRenderer
 from engine.components.camera import Camera
+from engine.components.material import Material
 
 
 # ──────────────────────────────────────────────────────────────────────
@@ -78,6 +79,21 @@ def world_to_dict(world: World, mesh_sources: dict | None = None) -> dict:
                 "projection": cam.projection,
                 "ortho_size": cam.ortho_size,
                 "is_main":    cam.is_main,
+            }
+
+        mat = world.get_component(eid, Material)
+        if mat is not None:
+            entry["components"]["Material"] = {
+                "name":                  mat.name,
+                "albedo":                _arr(mat.albedo),
+                "metallic":              float(mat.metallic),
+                "roughness":             float(mat.roughness),
+                "emission":              _arr(mat.emission),
+                "emission_strength":     float(mat.emission_strength),
+                "albedo_map":            mat.albedo_map,
+                "metallic_roughness_map":mat.metallic_roughness_map,
+                "normal_map":            mat.normal_map,
+                "ao_map":                mat.ao_map,
             }
 
         entities.append(entry)
@@ -196,6 +212,26 @@ def world_from_dict(
                 ))
             except Exception as exc:
                 warnings.append(f"Entidad '{stored_name}': Camera inválida — {exc}")
+
+        # Material
+        matd = comps.get("Material")
+        if matd is not None:
+            try:
+                import numpy as _np
+                world.add_component(new_id, Material(
+                    name                  = str(matd.get("name", "Default")),
+                    albedo                = _np.array(matd.get("albedo", [0.8, 0.8, 0.8]), _np.float32),
+                    metallic              = float(matd.get("metallic", 0.0)),
+                    roughness             = float(matd.get("roughness", 0.5)),
+                    emission              = _np.array(matd.get("emission", [0.0, 0.0, 0.0]), _np.float32),
+                    emission_strength     = float(matd.get("emission_strength", 0.0)),
+                    albedo_map            = str(matd.get("albedo_map", "")),
+                    metallic_roughness_map= str(matd.get("metallic_roughness_map", "")),
+                    normal_map            = str(matd.get("normal_map", "")),
+                    ao_map                = str(matd.get("ao_map", "")),
+                ))
+            except Exception as exc:
+                warnings.append(f"Entidad '{stored_name}': Material inválido — {exc}")
 
     # ── Segunda pasada: resolver parent IDs ───────────────────────────
     for e in entities_raw:

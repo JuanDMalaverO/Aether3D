@@ -1,11 +1,12 @@
 """
-ObjLoader - Carga archivos .obj y devuelve un Mesh listo para OpenGL.
+ObjLoader — Carga archivos .obj y devuelve un Mesh listo para OpenGL.
 
 Soporta:
- - v / vn / f (posición, normal, cara)
+ - v / vt / vn / f (posición, UV, normal, cara)
  - Caras con formato v, v/vt, v//vn, v/vt/vn
  - Quads y n-gons (triangulación por abanico)
  - Normales suaves calculadas automáticamente si el archivo no las incluye
+ - Formato de vértice 8-float: [pos3, normal3, uv2]
 """
 import numpy as np
 from engine.rendering.mesh import Mesh
@@ -14,8 +15,9 @@ from engine.rendering.mesh import Mesh
 def load_obj(filepath: str) -> Mesh:
     """Lee un .obj y devuelve un Mesh (requiere contexto OpenGL activo)."""
     raw_pos: list = []     # [[x, y, z], ...]
+    raw_uv:  list = []     # [[u, v], ...]
     raw_nrm: list = []     # [[nx, ny, nz], ...]
-    face_tris: list = []   # [((pi,ni),(pi,ni),(pi,ni)), ...]
+    face_tris: list = []   # [((pi,ui,ni),(pi,ui,ni),(pi,ui,ni)), ...]
 
     with open(filepath, 'r', encoding='utf-8', errors='ignore') as fh:
         for raw_line in fh:
@@ -28,6 +30,9 @@ def load_obj(filepath: str) -> Mesh:
             if tok == 'v' and len(parts) >= 4:
                 raw_pos.append([float(parts[1]), float(parts[2]), float(parts[3])])
 
+            elif tok == 'vt' and len(parts) >= 3:
+                raw_uv.append([float(parts[1]), float(parts[2])])
+
             elif tok == 'vn' and len(parts) >= 4:
                 raw_nrm.append([float(parts[1]), float(parts[2]), float(parts[3])])
 
@@ -37,11 +42,18 @@ def load_obj(filepath: str) -> Mesh:
                     segs = entry.split('/')
                     pi = int(segs[0])
                     pi = pi - 1 if pi > 0 else len(raw_pos) + pi
+
+                    ui = None
+                    if len(segs) >= 2 and segs[1]:
+                        u = int(segs[1])
+                        ui = u - 1 if u > 0 else len(raw_uv) + u
+
                     ni = None
                     if len(segs) >= 3 and segs[2]:
                         n = int(segs[2])
                         ni = n - 1 if n > 0 else len(raw_nrm) + n
-                    verts.append((pi, ni))
+
+                    verts.append((pi, ui, ni))
                 # Triangulación por abanico (válida para polígonos convexos)
                 for i in range(1, len(verts) - 1):
                     face_tris.append((verts[0], verts[i], verts[i + 1]))
@@ -51,23 +63,24 @@ def load_obj(filepath: str) -> Mesh:
 
     # Usamos las normales del archivo solo si TODAS las caras las tienen
     all_have_normals = bool(raw_nrm) and all(
-        ni is not None for tri in face_tris for _, ni in tri
+        ni is not None for tri in face_tris for _, _, ni in tri
     )
     if not all_have_normals:
         raw_nrm, face_tris = _smooth_normals(raw_pos, face_tris)
 
-    # Construcción del buffer indexado: cada par único (pos_idx, nrm_idx) = 1 vértice
+    # Construcción del buffer indexado: cada triplete único (pos_idx, uv_idx, nrm_idx) = 1 vértice
     vertex_map: dict = {}
     vertices: list = []
     indices: list = []
 
     for tri in face_tris:
-        for pi, ni in tri:
-            key = (pi, ni)
+        for pi, ui, ni in tri:
+            key = (pi, ui, ni)
             if key not in vertex_map:
                 vertex_map[key] = len(vertices)
                 nrm = raw_nrm[ni] if ni is not None else [0.0, 1.0, 0.0]
-                vertices.append(raw_pos[pi] + list(nrm))
+                uv  = raw_uv[ui]  if ui is not None else [0.0, 0.0]
+                vertices.append(raw_pos[pi] + list(nrm) + list(uv))
             indices.append(vertex_map[key])
 
     return Mesh(
@@ -83,7 +96,12 @@ def _smooth_normals(positions, face_tris):
 
     new_tris = []
     for tri in face_tris:
-        pi0, pi1, pi2 = tri[0][0], tri[1][0], tri[2][0]
+        pi0, _, _ = tri[0]
+        pi1, _, _ = tri[1]
+        pi2, _, _ = tri[2]
+        ui0 = tri[0][1]
+        ui1 = tri[1][1]
+        ui2 = tri[2][1]
         p0 = np.array(positions[pi0])
         p1 = np.array(positions[pi1])
         p2 = np.array(positions[pi2])
@@ -95,7 +113,7 @@ def _smooth_normals(positions, face_tris):
         accum[pi1] += fn
         accum[pi2] += fn
         # normal_idx == position_idx (un normal por posición)
-        new_tris.append(((pi0, pi0), (pi1, pi1), (pi2, pi2)))
+        new_tris.append(((pi0, ui0, pi0), (pi1, ui1, pi1), (pi2, ui2, pi2)))
 
     normals = []
     for i in range(n):

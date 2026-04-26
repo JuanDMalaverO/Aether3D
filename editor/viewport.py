@@ -15,8 +15,8 @@ import os
 import time
 
 from engine.ecs import World
-from engine.components import Transform, MeshRenderer, Rigidbody, Collider, ParticleEmitter, Camera
-from engine.rendering import Shader, create_cube, create_sphere, create_plane, create_capsule, OrbitCamera, Skybox, ShadowMap, PostProcess, ParticleSystem
+from engine.components import Transform, MeshRenderer, Rigidbody, Collider, ParticleEmitter, Camera, Material
+from engine.rendering import Shader, create_cube, create_sphere, create_plane, create_capsule, OrbitCamera, Skybox, ShadowMap, PostProcess, ParticleSystem, IBL, MaterialRegistry
 from engine.systems import RenderSystem, PhysicsSystem, ScriptSystem
 from engine.gizmo import Gizmo, GizmoMode, GizmoAxis
 from engine.input import Input
@@ -141,6 +141,32 @@ class Viewport(QOpenGLWidget):
                     self._skyboxes[_name] = Skybox(_face_dir)
                 except Exception as _e:
                     print(f"[Skybox] '{_name}' no se pudo cargar: {_e}")
+
+        # PBR: shader, IBL y MaterialRegistry
+        self.pbr_shader = None
+        try:
+            self.pbr_shader = Shader.from_files(
+                os.path.join(SHADER_DIR, "pbr.vert"),
+                os.path.join(SHADER_DIR, "pbr.frag"),
+            )
+        except Exception as _e:
+            print(f"[PBR] No se pudo cargar pbr shader: {_e}")
+
+        self.ibl = IBL()
+        self.material_registry = MaterialRegistry()
+
+        # Cargar materiales predefinidos desde assets/materials/
+        _mat_dir = os.path.normpath(os.path.join(os.path.dirname(__file__), "..", "assets", "materials"))
+        self.material_registry.load_dir(_mat_dir)
+
+        # Inyectar en el render system
+        self.render_system.pbr_shader       = self.pbr_shader
+        self.render_system.ibl              = self.ibl
+        self.render_system.material_registry = self.material_registry
+
+        # Computar IBL diferido para no bloquear el arranque
+        from PyQt6.QtCore import QTimer as _QTimer
+        _QTimer.singleShot(500, self._compute_ibl_for_active_skybox)
 
         # Post-procesado (FBO offscreen + efectos fullscreen)
         self.post_shader = Shader.from_files(
@@ -1022,6 +1048,37 @@ class Viewport(QOpenGLWidget):
 
     def set_skybox(self, name: str | None) -> None:
         self.active_skybox = name
+        # Recomputar IBL cuando cambia el skybox
+        from PyQt6.QtCore import QTimer as _QTimer
+        _QTimer.singleShot(0, self._compute_ibl_for_active_skybox)
+        self.update()
+
+    def _compute_ibl_for_active_skybox(self) -> None:
+        """Computa el mapa de irradiance IBL para el skybox activo."""
+        if not hasattr(self, 'ibl') or self.ibl is None:
+            return
+        skybox = self._skyboxes.get(self.active_skybox)
+        if skybox is None:
+            self.ibl.enabled = False
+            self.render_system._skybox_tex = 0
+            return
+        # Actualizar el skybox texture ID para el specular IBL
+        self.render_system._skybox_tex = skybox.texture_id
+
+        # Buscar el directorio de caras del skybox activo
+        _sb_root = os.path.normpath(os.path.join(
+            os.path.dirname(__file__), "..", "assets", "skyboxes"
+        ))
+        face_dir = os.path.join(_sb_root, self.active_skybox)
+        if not os.path.isdir(face_dir):
+            return
+        self.makeCurrent()
+        try:
+            self.ibl.compute_from_face_dir(face_dir, size=32)
+        except Exception as _e:
+            print(f"[IBL] Error computando irradiance: {_e}")
+        finally:
+            self.doneCurrent()
         self.update()
 
     def _draw_grid(self, view, proj) -> None:

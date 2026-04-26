@@ -6,7 +6,10 @@ from engine.rendering.skybox import Skybox
 from engine.rendering.shadow_map import ShadowMap
 from engine.rendering.post_process import PostProcess
 from engine.rendering.particle_system import ParticleSystem, apply_preset, list_presets
+from engine.rendering.ibl import IBL
+from engine.rendering.material_registry import MaterialRegistry
 
 __all__ = ["Shader", "Mesh", "create_cube", "create_sphere", "create_plane", "create_capsule",
            "OrbitCamera", "load_obj", "Skybox", "ShadowMap", "PostProcess",
-           "ParticleSystem", "apply_preset", "list_presets"]
+           "ParticleSystem", "apply_preset", "list_presets",
+           "IBL", "MaterialRegistry"]

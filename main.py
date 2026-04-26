@@ -10,7 +10,7 @@ from PyQt6.QtWidgets import QApplication
 from PyQt6.QtGui import QSurfaceFormat
 
 from engine.ecs import World
-from engine.components import Transform, MeshRenderer, Rigidbody, Collider, Script, ParticleEmitter
+from engine.components import Transform, MeshRenderer, Rigidbody, Collider, Script, ParticleEmitter, Material
 from engine.rendering import apply_preset
 from editor.main_window import MainWindow
 
@@ -43,6 +43,11 @@ def create_test_scene(world: World):
         mesh_name="capsule",
         color=np.array([0.55, 0.78, 1.0], dtype=np.float32),
     ))
+    world.add_component(jugador, Material(
+        name="Jugador",
+        albedo=np.array([0.55, 0.78, 1.0], np.float32),
+        metallic=0.0, roughness=0.5,
+    ))
     world.add_component(jugador, Rigidbody(
         mass=75.0, restitution=0.0, friction=0.8,
         use_gravity=True, is_static=False,
@@ -61,6 +66,11 @@ def create_test_scene(world: World):
         mesh_name="cube",
         color=np.array([0.35, 0.35, 0.40], dtype=np.float32),
     ))
+    world.add_component(ground, Material(
+        name="Suelo",
+        albedo=np.array([0.35, 0.35, 0.40], np.float32),
+        metallic=0.0, roughness=0.9,
+    ))
     world.add_component(ground, Rigidbody(is_static=True, use_gravity=False))
     world.add_component(ground, Collider(
         shape="aabb",
@@ -77,6 +87,11 @@ def create_test_scene(world: World):
         mesh_name="cube",
         color=np.array([0.4, 0.3, 0.2], dtype=np.float32),
     ))
+    world.add_component(plat, Material(
+        name="Plataforma",
+        albedo=np.array([0.4, 0.3, 0.2], np.float32),
+        metallic=0.0, roughness=0.8,
+    ))
     world.add_component(plat, Rigidbody(is_static=True, use_gravity=False))
     world.add_component(plat, Collider(
         shape="aabb",
@@ -91,6 +106,11 @@ def create_test_scene(world: World):
     world.add_component(b1, MeshRenderer(
         mesh_name="sphere",
         color=np.array([0.9, 0.2, 0.2], dtype=np.float32),
+    ))
+    world.add_component(b1, Material(
+        name="PelotaRebotadora",
+        albedo=np.array([0.9, 0.2, 0.2], np.float32),
+        metallic=0.0, roughness=0.3,
     ))
     world.add_component(b1, Rigidbody(
         mass=1.0, restitution=0.85, friction=0.1, use_gravity=True,
@@ -109,6 +129,11 @@ def create_test_scene(world: World):
         mesh_name="sphere",
         color=np.array([0.2, 0.7, 0.3], dtype=np.float32),
     ))
+    world.add_component(b2, Material(
+        name="PelotaCambiante",
+        albedo=np.array([0.2, 0.7, 0.3], np.float32),
+        metallic=0.0, roughness=0.4,
+    ))
     world.add_component(b2, Rigidbody(
         mass=1.0, restitution=0.4, friction=0.4, use_gravity=True,
     ))
@@ -126,6 +151,11 @@ def create_test_scene(world: World):
         mesh_name="sphere",
         color=np.array([0.7, 0.5, 0.1], dtype=np.float32),
     ))
+    world.add_component(b3, Material(
+        name="PelotaPesada",
+        albedo=np.array([0.7, 0.5, 0.1], np.float32),
+        metallic=0.8, roughness=0.2,
+    ))
     world.add_component(b3, Rigidbody(
         mass=5.0, restitution=0.2, friction=0.6, use_gravity=True,
     ))
@@ -139,6 +169,11 @@ def create_test_scene(world: World):
     world.add_component(box1, MeshRenderer(
         mesh_name="cube",
         color=np.array([0.3, 0.5, 0.9], dtype=np.float32),
+    ))
+    world.add_component(box1, Material(
+        name="CajaGiratoria",
+        albedo=np.array([0.3, 0.5, 0.9], np.float32),
+        metallic=0.1, roughness=0.5,
     ))
     world.add_component(box1, Rigidbody(
         mass=2.0, restitution=0.3, friction=0.5, use_gravity=True,
@@ -159,6 +194,11 @@ def create_test_scene(world: World):
     world.add_component(box2, MeshRenderer(
         mesh_name="cube",
         color=np.array([0.8, 0.4, 0.8], dtype=np.float32),
+    ))
+    world.add_component(box2, Material(
+        name="CajaPequeña",
+        albedo=np.array([0.8, 0.4, 0.8], np.float32),
+        metallic=0.0, roughness=0.4,
     ))
     world.add_component(box2, Rigidbody(
         mass=0.5, restitution=0.5, friction=0.3, use_gravity=True,

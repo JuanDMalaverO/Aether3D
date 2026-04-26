@@ -58,6 +58,11 @@ class Skybox:
         glDepthMask(GL_TRUE)
         glDepthFunc(GL_LESS)
 
+    @property
+    def texture_id(self) -> int:
+        """ID de la textura GL del cubemap (para IBL)."""
+        return self._texture
+
     def delete(self) -> None:
         glDeleteTextures(1, [self._texture])
         glDeleteVertexArrays(1, [self._vao])
@@ -77,7 +82,9 @@ class Skybox:
             glTexImage2D(target, 0, GL_RGB, img.width, img.height,
                          0, GL_RGB, GL_UNSIGNED_BYTE, data)
 
-        glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_MIN_FILTER, GL_LINEAR)
+        # Generar mipmaps para specular IBL (muestreo por LOD)
+        glGenerateMipmap(GL_TEXTURE_CUBE_MAP)
+        glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_MIN_FILTER, GL_LINEAR_MIPMAP_LINEAR)
         glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_MAG_FILTER, GL_LINEAR)
         glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE)
         glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE)

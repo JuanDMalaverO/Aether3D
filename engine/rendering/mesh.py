@@ -1,5 +1,6 @@
 """
-Mesh - Encapsula VAO/VBO/EBO y genera primitivas procedurales.
+Mesh — Encapsula VAO/VBO/EBO y genera primitivas procedurales.
+Formato de vértice: [pos3, normal3, uv2] = 8 floats, stride = 32 bytes.
 """
 from OpenGL.GL import *
 import numpy as np
@@ -9,7 +10,7 @@ import ctypes
 class Mesh:
     def __init__(self, vertices: np.ndarray, indices: np.ndarray):
         """
-        vertices: array (N, 6) - [x, y, z, nx, ny, nz]
+        vertices: array (N, 8) — [x, y, z, nx, ny, nz, u, v]
         indices: array de uint32
         """
         self.vertex_count = len(indices)
@@ -17,7 +18,7 @@ class Mesh:
         # AABB en espacio objeto (calculada antes de subir a GPU).
         # Usada por el sistema de ray-picking. Se expande ligeramente en
         # dimensiones degeneradas (ej: plane en Y=0) para evitar NaN en slab test.
-        positions = vertices.reshape(-1, 6)[:, :3]
+        positions = vertices.reshape(-1, 8)[:, :3]
         self.aabb_min: np.ndarray = positions.min(axis=0).astype(np.float32)
         self.aabb_max: np.ndarray = positions.max(axis=0).astype(np.float32)
         _thin = (self.aabb_max - self.aabb_min) < 1e-3
@@ -36,13 +37,17 @@ class Mesh:
         glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, self.ebo)
         glBufferData(GL_ELEMENT_ARRAY_BUFFER, indices.nbytes, indices, GL_STATIC_DRAW)
 
-        stride = 6 * 4  # 6 floats * 4 bytes
-        # Posición
+        # stride = 8 * 4 = 32 bytes
+        stride = 8 * 4
+        # Posición (loc 0): offset 0
         glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, stride, ctypes.c_void_p(0))
         glEnableVertexAttribArray(0)
-        # Normal
-        glVertexAttribPointer(1, 3, GL_FLOAT, GL_FALSE, stride, ctypes.c_void_p(3 * 4))
+        # Normal (loc 1): offset 12
+        glVertexAttribPointer(1, 3, GL_FLOAT, GL_FALSE, stride, ctypes.c_void_p(12))
         glEnableVertexAttribArray(1)
+        # UV (loc 2): offset 24
+        glVertexAttribPointer(2, 2, GL_FLOAT, GL_FALSE, stride, ctypes.c_void_p(24))
+        glEnableVertexAttribArray(2)
 
         glBindVertexArray(0)
 
@@ -58,39 +63,39 @@ class Mesh:
 
 
 def create_cube() -> Mesh:
-    """Cubo de lado 1 centrado en el origen, con normales por cara."""
-    # 6 caras * 4 vértices, cada uno con su normal
+    """Cubo de lado 1 centrado en el origen, con normales por cara y UV por cara."""
+    # 6 caras * 4 vértices — [x, y, z, nx, ny, nz, u, v]
     verts = np.array([
         # Cara +Z (frente)
-        -0.5, -0.5,  0.5,  0, 0, 1,
-         0.5, -0.5,  0.5,  0, 0, 1,
-         0.5,  0.5,  0.5,  0, 0, 1,
-        -0.5,  0.5,  0.5,  0, 0, 1,
+        -0.5, -0.5,  0.5,  0, 0, 1,  0, 0,
+         0.5, -0.5,  0.5,  0, 0, 1,  1, 0,
+         0.5,  0.5,  0.5,  0, 0, 1,  1, 1,
+        -0.5,  0.5,  0.5,  0, 0, 1,  0, 1,
         # Cara -Z (atrás)
-         0.5, -0.5, -0.5,  0, 0, -1,
-        -0.5, -0.5, -0.5,  0, 0, -1,
-        -0.5,  0.5, -0.5,  0, 0, -1,
-         0.5,  0.5, -0.5,  0, 0, -1,
+         0.5, -0.5, -0.5,  0, 0, -1,  0, 0,
+        -0.5, -0.5, -0.5,  0, 0, -1,  1, 0,
+        -0.5,  0.5, -0.5,  0, 0, -1,  1, 1,
+         0.5,  0.5, -0.5,  0, 0, -1,  0, 1,
         # Cara +X (derecha)
-         0.5, -0.5,  0.5,  1, 0, 0,
-         0.5, -0.5, -0.5,  1, 0, 0,
-         0.5,  0.5, -0.5,  1, 0, 0,
-         0.5,  0.5,  0.5,  1, 0, 0,
+         0.5, -0.5,  0.5,  1, 0, 0,  0, 0,
+         0.5, -0.5, -0.5,  1, 0, 0,  1, 0,
+         0.5,  0.5, -0.5,  1, 0, 0,  1, 1,
+         0.5,  0.5,  0.5,  1, 0, 0,  0, 1,
         # Cara -X (izquierda)
-        -0.5, -0.5, -0.5, -1, 0, 0,
-        -0.5, -0.5,  0.5, -1, 0, 0,
-        -0.5,  0.5,  0.5, -1, 0, 0,
-        -0.5,  0.5, -0.5, -1, 0, 0,
+        -0.5, -0.5, -0.5, -1, 0, 0,  0, 0,
+        -0.5, -0.5,  0.5, -1, 0, 0,  1, 0,
+        -0.5,  0.5,  0.5, -1, 0, 0,  1, 1,
+        -0.5,  0.5, -0.5, -1, 0, 0,  0, 1,
         # Cara +Y (arriba)
-        -0.5,  0.5,  0.5,  0, 1, 0,
-         0.5,  0.5,  0.5,  0, 1, 0,
-         0.5,  0.5, -0.5,  0, 1, 0,
-        -0.5,  0.5, -0.5,  0, 1, 0,
+        -0.5,  0.5,  0.5,  0, 1, 0,  0, 0,
+         0.5,  0.5,  0.5,  0, 1, 0,  1, 0,
+         0.5,  0.5, -0.5,  0, 1, 0,  1, 1,
+        -0.5,  0.5, -0.5,  0, 1, 0,  0, 1,
         # Cara -Y (abajo)
-        -0.5, -0.5, -0.5,  0, -1, 0,
-         0.5, -0.5, -0.5,  0, -1, 0,
-         0.5, -0.5,  0.5,  0, -1, 0,
-        -0.5, -0.5,  0.5,  0, -1, 0,
+        -0.5, -0.5, -0.5,  0, -1, 0,  0, 0,
+         0.5, -0.5, -0.5,  0, -1, 0,  1, 0,
+         0.5, -0.5,  0.5,  0, -1, 0,  1, 1,
+        -0.5, -0.5,  0.5,  0, -1, 0,  0, 1,
     ], dtype=np.float32)
 
     indices = np.array([
@@ -106,12 +111,13 @@ def create_cube() -> Mesh:
 
 
 def create_sphere(radius: float = 0.5, segments: int = 32, rings: int = 16) -> Mesh:
-    """Esfera UV procedural."""
+    """Esfera UV procedural con coordenadas de textura."""
     verts = []
     indices = []
 
     for ring in range(rings + 1):
         phi = np.pi * ring / rings
+        v_coord = ring / rings
         for seg in range(segments + 1):
             theta = 2 * np.pi * seg / segments
             x = radius * np.sin(phi) * np.cos(theta)
@@ -119,7 +125,8 @@ def create_sphere(radius: float = 0.5, segments: int = 32, rings: int = 16) -> M
             z = radius * np.sin(phi) * np.sin(theta)
             # Normal = posición normalizada (es una esfera)
             nx, ny, nz = x / radius, y / radius, z / radius
-            verts.extend([x, y, z, nx, ny, nz])
+            u_coord = seg / segments
+            verts.extend([x, y, z, nx, ny, nz, u_coord, v_coord])
 
     for ring in range(rings):
         for seg in range(segments):
@@ -140,6 +147,7 @@ def create_capsule(radius: float = 0.35, height: float = 1.5,
       - Semiesfera inferior: de polo sur (phi=-π/2) al ecuador inferior
       - Cilindro: el quad entre ecuador inferior y ecuador superior
       - Semiesfera superior: del ecuador superior al polo norte (phi=π/2)
+    UV: coordenadas simples (0,0) para toda la cápsula — sin UV completas.
     """
     half = height / 2.0
     row_data: list[tuple[float, float]] = []
@@ -159,9 +167,10 @@ def create_capsule(radius: float = 0.35, height: float = 1.5,
     n_per_row = seg + 1
     verts = []
 
-    for y_center, phi in row_data:
+    for row_i, (y_center, phi) in enumerate(row_data):
         xz_r = radius * np.cos(phi)
         y    = y_center + radius * np.sin(phi)
+        v_coord = row_i / max(1, n_rows - 1)
         for s in range(n_per_row):
             theta = 2 * np.pi * s / seg
             x  = xz_r * np.cos(theta)
@@ -169,7 +178,8 @@ def create_capsule(radius: float = 0.35, height: float = 1.5,
             nx = np.cos(phi) * np.cos(theta)
             ny = np.sin(phi)
             nz = np.cos(phi) * np.sin(theta)
-            verts.extend([x, y, z, nx, ny, nz])
+            u_coord = s / seg
+            verts.extend([x, y, z, nx, ny, nz, u_coord, v_coord])
 
     idxs = []
     for r in range(n_rows - 1):
@@ -185,13 +195,15 @@ def create_capsule(radius: float = 0.35, height: float = 1.5,
 
 
 def create_plane(size: float = 10.0) -> Mesh:
-    """Plano horizontal en Y=0."""
+    """Plano horizontal en Y=0 con UV de 0 a size (tileado)."""
     h = size / 2
+    # UV: tile a lo largo del plano; escalar por size/10 para que a tamaño 10 = 1 tile
+    uv_scale = size / 10.0
     verts = np.array([
-        -h, 0, -h,  0, 1, 0,
-         h, 0, -h,  0, 1, 0,
-         h, 0,  h,  0, 1, 0,
-        -h, 0,  h,  0, 1, 0,
+        -h, 0, -h,  0, 1, 0,  0,        0,
+         h, 0, -h,  0, 1, 0,  uv_scale, 0,
+         h, 0,  h,  0, 1, 0,  uv_scale, uv_scale,
+        -h, 0,  h,  0, 1, 0,  0,        uv_scale,
     ], dtype=np.float32)
     indices = np.array([0, 2, 1, 0, 3, 2], dtype=np.uint32)
     return Mesh(verts, indices)

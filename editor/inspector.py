@@ -13,7 +13,7 @@ from PyQt6.QtGui import QColor
 import numpy as np
 
 from engine.ecs import World
-from engine.components import Transform, MeshRenderer, Rigidbody, Collider, Script, ParticleEmitter, Camera
+from engine.components import Transform, MeshRenderer, Rigidbody, Collider, Script, ParticleEmitter, Camera, Material
 
 _AVAILABLE_MESHES = ["cube", "sphere", "plane"]
 
@@ -93,6 +93,10 @@ class InspectorWidget(QWidget):
             mesh_renderer = self.world.get_component(eid, MeshRenderer)
             if mesh_renderer is not None:
                 self._layout.addWidget(self._make_mesh_renderer_section(mesh_renderer))
+
+            material = self.world.get_component(eid, Material)
+            if material is not None:
+                self._layout.addWidget(self._make_material_section(material))
 
             rigidbody = self.world.get_component(eid, Rigidbody)
             if rigidbody is not None:
@@ -338,6 +342,119 @@ class InspectorWidget(QWidget):
         combo.currentTextChanged.connect(on_mesh)
         color_btn.clicked.connect(on_color)
         check.stateChanged.connect(on_visible)
+
+        return frame
+
+    # ------------------------------------------------------------------ #
+    def _make_material_section(self, mat: 'Material') -> QFrame:
+        """Panel del componente Material PBR."""
+        frame, grid = self._section_frame("Material PBR")
+        r = 0
+
+        # Albedo color -------------------------------------------------------
+        grid.addWidget(self._lbl("Albedo"), r, 0)
+        albedo_btn = QPushButton()
+        albedo_btn.setFixedHeight(22)
+        self._refresh_color_btn(albedo_btn, mat.albedo)
+        grid.addWidget(albedo_btn, r, 1, 1, 3); r += 1
+
+        def on_albedo():
+            qc = QColor(int(mat.albedo[0]*255), int(mat.albedo[1]*255), int(mat.albedo[2]*255))
+            picked = QColorDialog.getColor(qc, self, "Albedo")
+            if picked.isValid():
+                mat.albedo[:] = [picked.red()/255.0, picked.green()/255.0, picked.blue()/255.0]
+                self._refresh_color_btn(albedo_btn, mat.albedo)
+                self.viewport.update()
+        albedo_btn.clicked.connect(on_albedo)
+
+        # Metallic -----------------------------------------------------------
+        grid.addWidget(self._lbl("Metallic"), r, 0)
+        met_sb = QDoubleSpinBox()
+        met_sb.setRange(0.0, 1.0); met_sb.setSingleStep(0.05); met_sb.setDecimals(3)
+        met_sb.setValue(float(mat.metallic))
+        met_sb.setButtonSymbols(QDoubleSpinBox.ButtonSymbols.NoButtons)
+        met_sb.setStyleSheet(_SPIN_STYLE); met_sb.setMinimumWidth(48)
+        met_sb.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Fixed)
+        grid.addWidget(met_sb, r, 1, 1, 3); r += 1
+        met_sb.valueChanged.connect(lambda v: setattr(mat, 'metallic', float(v)) or self.viewport.update())
+
+        # Roughness ----------------------------------------------------------
+        grid.addWidget(self._lbl("Roughness"), r, 0)
+        rough_sb = QDoubleSpinBox()
+        rough_sb.setRange(0.0, 1.0); rough_sb.setSingleStep(0.05); rough_sb.setDecimals(3)
+        rough_sb.setValue(float(mat.roughness))
+        rough_sb.setButtonSymbols(QDoubleSpinBox.ButtonSymbols.NoButtons)
+        rough_sb.setStyleSheet(_SPIN_STYLE); rough_sb.setMinimumWidth(48)
+        rough_sb.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Fixed)
+        grid.addWidget(rough_sb, r, 1, 1, 3); r += 1
+        rough_sb.valueChanged.connect(lambda v: setattr(mat, 'roughness', float(v)) or self.viewport.update())
+
+        # Emission color -----------------------------------------------------
+        grid.addWidget(self._lbl("Emision"), r, 0)
+        em_btn = QPushButton()
+        em_btn.setFixedHeight(22)
+        self._refresh_color_btn(em_btn, mat.emission)
+        grid.addWidget(em_btn, r, 1, 1, 3); r += 1
+
+        def on_emission():
+            qc = QColor(int(mat.emission[0]*255), int(mat.emission[1]*255), int(mat.emission[2]*255))
+            picked = QColorDialog.getColor(qc, self, "Emision")
+            if picked.isValid():
+                mat.emission[:] = [picked.red()/255.0, picked.green()/255.0, picked.blue()/255.0]
+                self._refresh_color_btn(em_btn, mat.emission)
+                self.viewport.update()
+        em_btn.clicked.connect(on_emission)
+
+        # Emission strength --------------------------------------------------
+        grid.addWidget(self._lbl("Em.Fuerza"), r, 0)
+        ems_sb = QDoubleSpinBox()
+        ems_sb.setRange(0.0, 50.0); ems_sb.setSingleStep(0.1); ems_sb.setDecimals(2)
+        ems_sb.setValue(float(mat.emission_strength))
+        ems_sb.setButtonSymbols(QDoubleSpinBox.ButtonSymbols.NoButtons)
+        ems_sb.setStyleSheet(_SPIN_STYLE); ems_sb.setMinimumWidth(48)
+        ems_sb.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Fixed)
+        grid.addWidget(ems_sb, r, 1, 1, 3); r += 1
+        ems_sb.valueChanged.connect(lambda v: setattr(mat, 'emission_strength', float(v)) or self.viewport.update())
+
+        # Texture path fields ------------------------------------------------
+        def _tex_row(row, label, attr):
+            grid.addWidget(self._lbl(label), row, 0)
+            le = QLineEdit(getattr(mat, attr))
+            le.setPlaceholderText("Ruta a textura...")
+            le.setStyleSheet(
+                "QLineEdit { background:#1e1e1e; color:#dcdcdc;"
+                "  border:1px solid #3a3a3a; padding:2px 4px; font-size:10px; }"
+            )
+            browse = QPushButton("..."); browse.setFixedWidth(24)
+            browse.setStyleSheet(
+                "QPushButton { background:#2a2a2a; color:#ccc;"
+                "  border:1px solid #3a3a3a; border-radius:3px; padding:1px; }"
+                "QPushButton:hover { background:#383838; }"
+            )
+            hbox = QHBoxLayout(); hbox.setContentsMargins(0, 0, 0, 0); hbox.setSpacing(2)
+            hbox.addWidget(le); hbox.addWidget(browse)
+            container = QWidget(); container.setLayout(hbox)
+            grid.addWidget(container, row, 1, 1, 3)
+
+            def _on_text(text, a=attr):
+                setattr(mat, a, text)
+
+            def _browse(a=attr, edit=le):
+                p, _ = QFileDialog.getOpenFileName(
+                    self, "Seleccionar textura", "", "Imagenes (*.png *.jpg *.jpeg *.tga *.bmp)"
+                )
+                if p:
+                    edit.setText(p)
+                    setattr(mat, a, p)
+                    self.viewport.update()
+
+            le.textChanged.connect(_on_text)
+            browse.clicked.connect(_browse)
+
+        _tex_row(r, "Albedo Map",  "albedo_map");              r += 1
+        _tex_row(r, "Normal Map",  "normal_map");              r += 1
+        _tex_row(r, "MetalRough",  "metallic_roughness_map");  r += 1
+        _tex_row(r, "AO Map",      "ao_map");                  r += 1
 
         return frame
 
