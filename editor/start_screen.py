@@ -18,40 +18,37 @@ from PyQt6.QtWidgets import (
 from PyQt6.QtCore import Qt, pyqtSignal, QPoint
 from PyQt6.QtGui import QCursor
 
-_RECENT_FILE = os.path.join(os.path.dirname(__file__), "..", ".aether3d_recent.json")
+_WORLDS_DIR = os.path.normpath(os.path.join(os.path.dirname(__file__), "..", "worlds"))
 _MAX_RECENT  = 8
 
 
-# ── Utilidad de recientes ──────────────────────────────────────────────────
+# ── Utilidad de recientes — lee directamente de la carpeta worlds/ ──────────
 
 def _load_recent() -> list[dict]:
+    """Escanea worlds/ y devuelve los archivos ordenados por fecha de modificación."""
+    os.makedirs(_WORLDS_DIR, exist_ok=True)
+    entries = []
     try:
-        with open(_RECENT_FILE, encoding="utf-8") as f:
-            data = json.load(f)
-        return [r for r in data if os.path.isfile(r.get("path", ""))]
-    except Exception:
-        return []
-
-
-def _save_recent(path: str) -> None:
-    entries = _load_recent()
-    entries = [e for e in entries if e["path"] != path]
-    entries.insert(0, {
-        "path": path,
-        "name": os.path.splitext(os.path.basename(path))[0],
-        "date": datetime.datetime.now().strftime("%d/%m/%Y %H:%M"),
-    })
-    entries = entries[:_MAX_RECENT]
-    try:
-        with open(_RECENT_FILE, "w", encoding="utf-8") as f:
-            json.dump(entries, f, indent=2, ensure_ascii=False)
+        for fn in os.listdir(_WORLDS_DIR):
+            if not fn.endswith(".json"):
+                continue
+            path = os.path.join(_WORLDS_DIR, fn)
+            mtime = os.path.getmtime(path)
+            dt    = datetime.datetime.fromtimestamp(mtime)
+            entries.append({
+                "path": path,
+                "name": os.path.splitext(fn)[0],
+                "date": dt.strftime("%d/%m/%Y  %H:%M"),
+            })
     except Exception:
         pass
+    entries.sort(key=lambda e: os.path.getmtime(e["path"]), reverse=True)
+    return entries[:_MAX_RECENT]
 
 
 def record_opened_scene(path: str) -> None:
-    """Llamar desde MainWindow cuando se abre una escena."""
-    _save_recent(path)
+    """Compatibilidad: no hace nada — la lista la genera el escaneo de worlds/."""
+    pass
 
 
 # ── Widget de escena reciente ──────────────────────────────────────────────
@@ -371,17 +368,16 @@ class StartScreen(QDialog):
         self.accept()
 
     def _on_load(self):
+        os.makedirs(_WORLDS_DIR, exist_ok=True)
         path, _ = QFileDialog.getOpenFileName(
-            self, "Cargar Escena — Aether3D",
-            "",
-            "Escenas Aether3D (*.json);;Todos los archivos (*)",
+            self, "Cargar Mundo — Aether3D",
+            _WORLDS_DIR,
+            "Mundos Aether3D (*.json);;Todos los archivos (*)",
         )
         if path:
-            _save_recent(path)
             self.load_scene_requested.emit(path)
             self.accept()
 
     def _on_recent(self, path: str):
-        _save_recent(path)
         self.load_scene_requested.emit(path)
         self.accept()

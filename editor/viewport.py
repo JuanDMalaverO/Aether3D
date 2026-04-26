@@ -1063,16 +1063,18 @@ class Viewport(QOpenGLWidget):
             self.ibl.enabled = False
             self.render_system._skybox_tex = 0
             return
-        # Actualizar el skybox texture ID para el specular IBL
         self.render_system._skybox_tex = skybox.texture_id
 
-        # Buscar el directorio de caras del skybox activo
         _sb_root = os.path.normpath(os.path.join(
             os.path.dirname(__file__), "..", "assets", "skyboxes"
         ))
         face_dir = os.path.join(_sb_root, self.active_skybox)
         if not os.path.isdir(face_dir):
             return
+
+        # Mostrar overlay de carga IBL
+        self._show_ibl_loading(True)
+
         self.makeCurrent()
         try:
             self.ibl.compute_from_face_dir(face_dir, size=32)
@@ -1080,7 +1082,40 @@ class Viewport(QOpenGLWidget):
             print(f"[IBL] Error computando irradiance: {_e}")
         finally:
             self.doneCurrent()
+
+        # Ocultar overlay y refrescar
+        self._show_ibl_loading(False)
         self.update()
+
+    def _show_ibl_loading(self, visible: bool) -> None:
+        """Muestra u oculta el overlay de carga IBL sobre el viewport."""
+        if not hasattr(self, '_ibl_overlay'):
+            self._ibl_overlay = QLabel(self)
+            self._ibl_overlay.setAlignment(Qt.AlignmentFlag.AlignCenter)
+            self._ibl_overlay.setStyleSheet(
+                "QLabel {"
+                "  background: rgba(9,9,14,210);"
+                "  color: #6c63ff;"
+                "  font-size: 12px;"
+                "  letter-spacing: 0.10em;"
+                "  border: none;"
+                "}"
+            )
+            self._ibl_overlay.setText(
+                "<div align='center'>"
+                "<span style='color:#e8e8f8;font-size:22px;font-weight:700;"
+                "  letter-spacing:0.14em;'>AETHER3D</span><br><br>"
+                "<span style='color:#6c63ff;font-size:11px;letter-spacing:0.08em;'>"
+                "Calculando iluminación global (IBL)</span><br>"
+                "<span style='color:#28283c;font-size:10px;'>Juan Malaver</span>"
+                "</div>"
+            )
+        self._ibl_overlay.resize(self.size())
+        self._ibl_overlay.setVisible(visible)
+        if visible:
+            self._ibl_overlay.raise_()
+        from PyQt6.QtWidgets import QApplication
+        QApplication.processEvents()
 
     def _draw_grid(self, view, proj) -> None:
         self.grid_shader.use()
@@ -1167,7 +1202,12 @@ class Viewport(QOpenGLWidget):
 
         chosen = menu.exec(event.globalPosition().toPoint())
         if chosen == delete_act:
-            self.delete_entity_requested.emit(eid)
+            if self.world.get_entity_name(eid) == "Jugador":
+                from PyQt6.QtWidgets import QMessageBox
+                QMessageBox.warning(self, "Entidad protegida",
+                    "«Jugador» es la entidad principal y no puede eliminarse.")
+            else:
+                self.delete_entity_requested.emit(eid)
 
     # ---------- Movimiento WASD ──────────────────────────────────────────
     def _handle_wasd(self, dt: float) -> None:

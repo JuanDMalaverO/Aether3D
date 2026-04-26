@@ -17,7 +17,8 @@ from engine.components import (
 )
 from engine.rendering import apply_preset
 from editor.main_window import MainWindow
-from editor.start_screen import StartScreen, record_opened_scene
+from editor.start_screen import StartScreen
+from editor.loading_screen import LoadingScreen
 
 _SCRIPTS   = os.path.join(os.path.dirname(__file__), "assets", "scripts")
 _PARTICLES = os.path.join(os.path.dirname(__file__), "assets", "particles")
@@ -150,15 +151,6 @@ def create_default_scene(world: World):
         world.add_component(eid, em)
 
 
-def _open_editor(world: World, scene_path: str | None = None) -> MainWindow:
-    """Crea y devuelve la ventana del editor con el mundo dado."""
-    window = MainWindow(world)
-    if scene_path:
-        window._on_open_scene_path(scene_path)
-    window.show()
-    return window
-
-
 def main():
     setup_opengl_format()
     app = QApplication(sys.argv)
@@ -169,7 +161,23 @@ def main():
     _editor_ref = []
 
     def launch_editor(world: World, scene_path: str | None = None):
-        win = _open_editor(world, scene_path)
+        loading = LoadingScreen()
+        loading.show()
+        loading.set_status("Compilando shaders")
+        QApplication.processEvents()
+
+        win = MainWindow(world)
+        loading.set_status("Cargando escena")
+        QApplication.processEvents()
+
+        if scene_path:
+            win._on_open_scene_path(scene_path)
+
+        loading.set_status("Iniciando motor")
+        QApplication.processEvents()
+
+        win.show()
+        loading.close()
         _editor_ref.append(win)
 
     # ── Pantalla de inicio ─────────────────────────────────────────────

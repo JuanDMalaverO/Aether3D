@@ -31,6 +31,8 @@ class MainWindow(QMainWindow):
 
         uic.loadUi(UI_FILE, self)
 
+        self._current_scene_path: str | None = None   # ruta del mundo activo
+
         self._setup_viewport()
         self._setup_inspector()
         self._setup_hierarchy_tree()
@@ -425,6 +427,16 @@ class MainWindow(QMainWindow):
         """Elimina una entidad del mundo y actualiza toda la UI."""
         name = self.world.get_entity_name(entity_id)
 
+        # Entidad protegida: el Jugador nunca puede eliminarse
+        if name == "Jugador":
+            from PyQt6.QtWidgets import QMessageBox
+            QMessageBox.warning(
+                self, "Entidad protegida",
+                "«Jugador» es la entidad principal del mundo y no puede eliminarse.\n"
+                "Puedes modificar sus componentes pero nunca eliminarlo.",
+            )
+            return
+
         # Limpiar estado interno de sistemas que mantienen dicts por entity_id
         ss = getattr(self.viewport, 'script_system', None)
         if ss:
@@ -437,12 +449,32 @@ class MainWindow(QMainWindow):
             ps._states[entity_id].delete()
             del ps._states[entity_id]
 
-        self.world.destroy_entity(entity_id)  # también limpia selected_entity si aplica
+        self.world.destroy_entity(entity_id)
 
         self.inspector.set_entity(None)
         self._populate_hierarchy_tree()
         self.viewport.update()
         self.log(f"Eliminada: {name}", "info")
+
+    def closeEvent(self, event) -> None:
+        """Pide confirmación antes de salir del editor."""
+        from PyQt6.QtWidgets import QMessageBox
+        reply = QMessageBox.question(
+            self,
+            "Salir de Aether3D",
+            "¿Seguro que quieres salir?\n\nLos cambios no guardados se perderán.",
+            QMessageBox.StandardButton.Save |
+            QMessageBox.StandardButton.Discard |
+            QMessageBox.StandardButton.Cancel,
+            QMessageBox.StandardButton.Cancel,
+        )
+        if reply == QMessageBox.StandardButton.Save:
+            self._on_save_scene()
+            event.accept()
+        elif reply == QMessageBox.StandardButton.Discard:
+            event.accept()
+        else:
+            event.ignore()
 
     def _on_add_primitive(self, mesh_name: str) -> None:
         """Añade una entidad con TODOS los componentes estándar a la escena."""
@@ -515,45 +547,60 @@ class MainWindow(QMainWindow):
             return
 
         self.world.clear_all()
+        self._current_scene_path = None
+        self.setWindowTitle("Aether3D — Nuevo Mundo  ·  Juan Malaver")
+        self._add_default_player()
         self.inspector.set_entity(None)
         self._populate_hierarchy_tree()
         self.viewport.update()
-        self.log("Escena nueva creada", "ok")
+        self.log("Nuevo mundo creado — Jugador añadido automáticamente", "ok")
 
     # ──────────────────────────────────────────────────────────────────
     def _on_save_scene(self) -> None:
-        scenes_dir = os.path.normpath(
-            os.path.join(os.path.dirname(__file__), '..', 'scenes')
+        worlds_dir = os.path.normpath(
+            os.path.join(os.path.dirname(__file__), '..', 'worlds')
         )
-        os.makedirs(scenes_dir, exist_ok=True)
+        os.makedirs(worlds_dir, exist_ok=True)
+
+        # Si ya hay ruta guardada, guardar directo sin diálogo
+        if self._current_scene_path:
+            self._save_to(self._current_scene_path)
+            return
 
         filepath, _ = QFileDialog.getSaveFileName(
-            self, "Guardar escena", scenes_dir, "Escenas JSON (*.json)"
+            self, "Guardar mundo — Aether3D", worlds_dir,
+            "Mundos Aether3D (*.json)"
         )
         if not filepath:
             return
         if not filepath.lower().endswith('.json'):
             filepath += '.json'
+        self._current_scene_path = filepath
+        self._save_to(filepath)
 
+    def _save_to(self, filepath: str) -> None:
         from engine.scene.serializer import world_to_dict
         try:
             data = world_to_dict(self.world, self.viewport.mesh_sources)
             with open(filepath, 'w', encoding='utf-8') as fh:
                 json.dump(data, fh, indent=2, ensure_ascii=False)
-            n = len(data["entities"])
-            self.log(f"Escena guardada: {os.path.basename(filepath)}  ({n} entidades)", "ok")
+            name = os.path.splitext(os.path.basename(filepath))[0]
+            n    = len(data["entities"])
+            self.setWindowTitle(f"Aether3D — {name}  ·  Juan Malaver")
+            self.log(f"Mundo guardado: {name}  ({n} entidades)  →  worlds/", "ok")
         except Exception as exc:
             self.log(f"Error al guardar: {exc}", "error")
 
     # ──────────────────────────────────────────────────────────────────
     def _on_open_scene(self) -> None:
-        scenes_dir = os.path.normpath(
-            os.path.join(os.path.dirname(__file__), '..', 'scenes')
+        worlds_dir = os.path.normpath(
+            os.path.join(os.path.dirname(__file__), '..', 'worlds')
         )
-        os.makedirs(scenes_dir, exist_ok=True)
+        os.makedirs(worlds_dir, exist_ok=True)
 
         filepath, _ = QFileDialog.getOpenFileName(
-            self, "Cargar escena", scenes_dir, "Escenas JSON (*.json)"
+            self, "Cargar mundo — Aether3D", worlds_dir,
+            "Mundos Aether3D (*.json);;Todos los archivos (*)"
         )
         if not filepath:
             return
@@ -619,20 +666,51 @@ class MainWindow(QMainWindow):
             self.log(w, "warn")
 
         n = len(self.world.all_entities())
-        self.log(f"Escena cargada: {os.path.basename(filepath)}  ({n} entidades)", "ok")
+        name = os.path.splitext(os.path.basename(filepath))[0]
+        self.log(f"Mundo cargado: {name}  ({n} entidades)", "ok")
+        self._current_scene_path = filepath
+        self.setWindowTitle(f"Aether3D — {name}  ·  Juan Malaver")
 
         # ── Refrescar UI ──────────────────────────────────────────────
         self._populate_hierarchy_tree()
         self.inspector.set_entity(None)
         self.viewport.update()
 
+    def _add_default_player(self) -> None:
+        """Añade el Jugador si no existe (entidad protegida, siempre presente)."""
+        for eid in self.world.all_entities():
+            if self.world.get_entity_name(eid) == "Jugador":
+                return   # ya existe
+        import numpy as np
+        from engine.components import (
+            Transform, MeshRenderer, Rigidbody, Collider, Material
+        )
+        eid = self.world.create_entity("Jugador")
+        self.world.add_component(eid, Transform(
+            position=np.array([0.0, 1.1, 6.0], dtype=np.float32),
+        ))
+        self.world.add_component(eid, MeshRenderer(
+            mesh_name="capsule",
+            color=np.array([0.55, 0.78, 1.0], dtype=np.float32),
+        ))
+        self.world.add_component(eid, Material(
+            name="Jugador",
+            albedo=np.array([0.55, 0.78, 1.0], np.float32),
+            metallic=0.0, roughness=0.5,
+        ))
+        self.world.add_component(eid, Rigidbody(
+            mass=75.0, restitution=0.0, friction=0.8,
+            use_gravity=True, is_static=False,
+        ))
+        self.world.add_component(eid, Collider(shape="sphere", radius=0.38))
+
     def _on_open_scene_path(self, filepath: str) -> None:
-        """Carga una escena directamente desde ruta (llamado desde StartScreen)."""
+        """Carga un mundo directamente desde ruta (llamado desde StartScreen)."""
         try:
             with open(filepath, 'r', encoding='utf-8') as fh:
                 data = json.load(fh)
         except Exception as exc:
-            self.log(f"Error al cargar escena: {exc}", "error")
+            self.log(f"Error al cargar mundo: {exc}", "error")
             return
         self.world.clear_all()
         self.viewport.mesh_sources.clear()
@@ -641,10 +719,13 @@ class MainWindow(QMainWindow):
         warnings, _ = world_from_dict(self.world, data, known)
         for w in warnings:
             self.log(w, "warn")
-        from editor.start_screen import record_opened_scene
-        record_opened_scene(filepath)
-        n = len(self.world.all_entities())
-        self.log(f"Escena cargada: {os.path.basename(filepath)}  ({n} entidades)", "ok")
+        # Garantizar que siempre haya Jugador
+        self._add_default_player()
+        n    = len(self.world.all_entities())
+        name = os.path.splitext(os.path.basename(filepath))[0]
+        self._current_scene_path = filepath
+        self.setWindowTitle(f"Aether3D — {name}  ·  Juan Malaver")
+        self.log(f"Mundo cargado: {name}  ({n} entidades)", "ok")
         self._populate_hierarchy_tree()
         self.inspector.set_entity(None)
         self.viewport.update()
