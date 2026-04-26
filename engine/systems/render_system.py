@@ -110,6 +110,11 @@ class RenderSystem(System):
             s.set_int  ("uShadowEnabled",    0)
             s.set_mat4 ("uLightSpaceMatrix", np.eye(4, dtype=np.float32))
 
+        # Fijar las unidades de los samplerCube SIEMPRE para evitar type-mismatch
+        # con texturas GL_TEXTURE_2D en drivers Windows (GL_INVALID_OPERATION en draw)
+        s.set_int("uIrradianceMap", 5)
+        s.set_int("uPrefilterMap",  6)
+
     def _bind_material(self, mat) -> None:
         """Enlaza los uniforms y texturas del material PBR."""
         s = self.pbr_shader
@@ -162,14 +167,19 @@ class RenderSystem(System):
         else:
             s.set_int("uHasAoMap", 0)
 
-        # IBL textures (units 5 y 6)
+        # IBL textures (units 5 y 6) — SIEMPRE ligar un cubemap válido para
+        # evitar GL_INVALID_OPERATION por type-mismatch samplerCube en drivers Windows
+        dummy = self.ibl.dummy_tex if self.ibl else 0
         if self.ibl and self.ibl.enabled:
             glActiveTexture(GL_TEXTURE5)
-            glBindTexture(GL_TEXTURE_CUBE_MAP, self.ibl.irradiance_tex)
-            s.set_int("uIrradianceMap", 5)
+            glBindTexture(GL_TEXTURE_CUBE_MAP, self.ibl.irradiance_tex or dummy)
             glActiveTexture(GL_TEXTURE6)
-            glBindTexture(GL_TEXTURE_CUBE_MAP, self._skybox_tex)
-            s.set_int("uPrefilterMap", 6)
-            s.set_int("uIBLEnabled",   1)
+            glBindTexture(GL_TEXTURE_CUBE_MAP, self._skybox_tex or dummy)
+            s.set_int("uIBLEnabled", 1)
         else:
+            fallback = self._skybox_tex or dummy
+            glActiveTexture(GL_TEXTURE5)
+            glBindTexture(GL_TEXTURE_CUBE_MAP, fallback)
+            glActiveTexture(GL_TEXTURE6)
+            glBindTexture(GL_TEXTURE_CUBE_MAP, fallback)
             s.set_int("uIBLEnabled", 0)

@@ -153,6 +153,7 @@ class Viewport(QOpenGLWidget):
             print(f"[PBR] No se pudo cargar pbr shader: {_e}")
 
         self.ibl = IBL()
+        self.ibl.create_dummy()   # cubemap negro 1×1 — evita type-mismatch en drivers Windows
         self.material_registry = MaterialRegistry()
 
         # Cargar materiales predefinidos desde assets/materials/

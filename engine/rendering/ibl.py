@@ -17,7 +17,27 @@ _GL_FACES = [
 class IBL:
     def __init__(self):
         self.irradiance_tex = 0
+        self.dummy_tex      = 0   # cubemap negro 1×1 para evitar type-mismatch en drivers Windows
         self.enabled = False
+
+    def create_dummy(self) -> None:
+        """Crea un cubemap negro 1×1 para ligar cuando IBL aún no está listo.
+        Llamar desde initializeGL (requiere contexto GL activo).
+        Evita GL_INVALID_OPERATION por samplerCube apuntando a una unidad sin cubemap."""
+        if self.dummy_tex:
+            return  # ya creado
+        tex = glGenTextures(1)
+        glBindTexture(GL_TEXTURE_CUBE_MAP, tex)
+        black = np.zeros((1, 1, 3), dtype=np.float32)
+        for face in _GL_FACES:
+            glTexImage2D(face, 0, GL_RGB16F, 1, 1, 0, GL_RGB, GL_FLOAT, black)
+        glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_MIN_FILTER, GL_LINEAR)
+        glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_MAG_FILTER, GL_LINEAR)
+        glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE)
+        glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE)
+        glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_WRAP_R, GL_CLAMP_TO_EDGE)
+        glBindTexture(GL_TEXTURE_CUBE_MAP, 0)
+        self.dummy_tex = int(tex)
 
     def compute_from_face_dir(self, face_dir: str, size: int = 32) -> None:
         """Carga las caras del skybox desde disco y computa la irradiance en CPU."""
