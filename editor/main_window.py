@@ -800,21 +800,58 @@ class MainWindow(QMainWindow):
             self.viewport.mesh_registry[mesh_name] = mesh
             self.viewport.mesh_sources[mesh_name] = filepath
 
+            # Tamaño del collider AABB deducido del bounding box real del mesh
+            aabb_size = (mesh.aabb_max - mesh.aabb_min).astype(np.float32)
+            aabb_size = np.maximum(aabb_size, np.array([0.1, 0.1, 0.1], np.float32))
+
             entity_id = self.world.create_entity(mesh_name)
+
+            # ── Transform ──────────────────────────────────────────────
             self.world.add_component(entity_id, Transform(
                 position=np.array([0.0, 0.5, 0.0], dtype=np.float32),
             ))
+
+            # ── MeshRenderer ───────────────────────────────────────────
             self.world.add_component(entity_id, MeshRenderer(
                 mesh_name=mesh_name,
                 color=np.array([0.8, 0.8, 0.8], dtype=np.float32),
             ))
+
+            # ── Material PBR ───────────────────────────────────────────
+            from engine.components import Material
+            self.world.add_component(entity_id, Material(
+                name=mesh_name,
+                albedo=np.array([0.8, 0.8, 0.8], np.float32),
+                metallic=0.0,
+                roughness=0.5,
+            ))
+
+            # ── Rigidbody ──────────────────────────────────────────────
+            self.world.add_component(entity_id, Rigidbody(
+                mass=1.0, restitution=0.3, friction=0.5,
+                use_gravity=True, is_static=False,
+            ))
+
+            # ── Collider (AABB real del mesh) ──────────────────────────
+            self.world.add_component(entity_id, Collider(
+                shape="aabb",
+                size=aabb_size,
+            ))
+
+            # ── Script (ruta vacía, editable desde el inspector) ───────
+            self.world.add_component(entity_id, Script(path=""))
 
             self._populate_hierarchy_tree()
             self.world.selected_entity = entity_id
             self._select_tree_item(entity_id)
             self.inspector.set_entity(entity_id)
             self.viewport.update()
-            self.log(f"Importado: {mesh_name}  ({mesh.vertex_count // 3} triángulos)", "ok")
+            tris = mesh.vertex_count // 3
+            self.log(
+                f"Importado: {mesh_name}  ({tris} triángulos)"
+                f"  ·  Transform · MeshRenderer · Material · Rigidbody · Collider · Script",
+                "ok"
+            )
 
         except Exception as exc:
             self.log(f"Error importando '{base}': {exc}", "error")
