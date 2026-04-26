@@ -1,0 +1,20 @@
+{
+  "_comment": "Preset: Explosión — ráfaga única omnidireccional naranja→rojo",
+  "max_particles": 400,
+  "emission_rate": 0.0,
+  "lifetime_min": 0.25,
+  "lifetime_max": 0.75,
+  "speed_min": 5.0,
+  "speed_max": 12.0,
+  "size_start": 0.7,
+  "size_end": 0.0,
+  "color_start": [1.0, 0.75, 0.0, 1.0],
+  "color_end":   [0.6, 0.05, 0.0, 0.0],
+  "gravity_scale": 0.4,
+  "shape": "sphere",
+  "shape_radius": 0.05,
+  "cone_angle": 30.0,
+  "burst": true,
+  "burst_count": 350,
+  "enabled": true
+}
