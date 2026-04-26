@@ -30,6 +30,7 @@ import numpy as np
 from engine.ecs import World
 from engine.components.transform import Transform
 from engine.components.mesh import MeshRenderer
+from engine.components.camera import Camera
 
 
 # ──────────────────────────────────────────────────────────────────────
@@ -66,6 +67,17 @@ def world_to_dict(world: World, mesh_sources: dict | None = None) -> dict:
                 "mesh_source": source,
                 "color":       _arr(mr.color),
                 "visible":     mr.visible,
+            }
+
+        cam = world.get_component(eid, Camera)
+        if cam is not None:
+            entry["components"]["Camera"] = {
+                "fov":        cam.fov,
+                "near":       cam.near,
+                "far":        cam.far,
+                "projection": cam.projection,
+                "ortho_size": cam.ortho_size,
+                "is_main":    cam.is_main,
             }
 
         entities.append(entry)
@@ -169,6 +181,21 @@ def world_from_dict(
                 world.add_component(new_id, mr)
             except Exception as exc:
                 warnings.append(f"Entidad '{stored_name}': MeshRenderer inválido — {exc}")
+
+        # Camera
+        cd = comps.get("Camera")
+        if cd is not None:
+            try:
+                world.add_component(new_id, Camera(
+                    fov        = float(cd.get("fov",        60.0)),
+                    near       = float(cd.get("near",       0.1)),
+                    far        = float(cd.get("far",        1000.0)),
+                    projection = str(cd.get("projection",   "perspective")),
+                    ortho_size = float(cd.get("ortho_size", 10.0)),
+                    is_main    = bool(cd.get("is_main",     True)),
+                ))
+            except Exception as exc:
+                warnings.append(f"Entidad '{stored_name}': Camera inválida — {exc}")
 
     # ── Segunda pasada: resolver parent IDs ───────────────────────────
     for e in entities_raw:

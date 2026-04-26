@@ -192,6 +192,16 @@ class Viewport(QOpenGLWidget):
         self._wire_box_vao,    self._wire_box_count    = self._make_wire_box()
         self._wire_sphere_vao, self._wire_sphere_count = self._make_wire_sphere()
 
+        # VAO/VBO dinámico para los frustums de cámaras (máx 64 líneas = 128 verts × 3 floats)
+        self._cam_frust_vao = glGenVertexArrays(1)
+        self._cam_frust_vbo = glGenBuffers(1)
+        glBindVertexArray(self._cam_frust_vao)
+        glBindBuffer(GL_ARRAY_BUFFER, self._cam_frust_vbo)
+        glBufferData(GL_ARRAY_BUFFER, 128 * 3 * 4, None, GL_DYNAMIC_DRAW)
+        glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 12, ctypes.c_void_p(0))
+        glEnableVertexAttribArray(0)
+        glBindVertexArray(0)
+
     # ══════════════════════════════════════════════════════════════════════
     # ── Modo Juego: Play / Pause / Stop ───────────────────────────────────
     # ══════════════════════════════════════════════════════════════════════
@@ -421,9 +431,15 @@ class Viewport(QOpenGLWidget):
         dx = gp.x() - center.x()
         dy = gp.y() - center.y()
         if abs(dx) > 0.5 or abs(dy) > 0.5:
-            self._fps_yaw   -= dx * 0.12          # negativo: mouse derecha → girar derecha
-            self._fps_pitch  = max(-89.0, min(89.0, self._fps_pitch - dy * 0.12))
+            # Alimentar Input para scripts (first_person_controller, third_person_controller)
+            Input._set_mouse_delta(float(dx), float(dy))
+            # Modo FPS legacy: rotar cámara directamente
+            if self._play_camera_eid is None:
+                self._fps_yaw   -= dx * 0.12
+                self._fps_pitch  = max(-89.0, min(89.0, self._fps_pitch - dy * 0.12))
             QCursor.setPos(center)
+        else:
+            Input._set_mouse_delta(0.0, 0.0)
 
     # ── Borde indicador ───────────────────────────────────────────────────
     def _draw_play_border(self) -> None:
@@ -457,6 +473,101 @@ class Viewport(QOpenGLWidget):
         glBindVertexArray(0)
         glEnable(GL_DEPTH_TEST)
 
+    # ── Mini preview de la cámara principal ──────────────────────────────
+    def _draw_mini_preview(self) -> None:
+        """Renderiza un thumbnail 240×135 de la cámara principal en la esquina inferior derecha."""
+        main = self._find_main_camera()
+        if main is None:
+            return
+        eid, cam, _ = main
+
+        W, H  = self.width(), self.height()
+        pw, ph = 240, 135
+        # GL coords: origen en esquina inferior-izquierda
+        px = W - pw - 8
+        py = 8
+
+        # Guardar estado previo
+        aspect = pw / max(1, ph)
+        view_p, proj_p = self._get_cam_view_proj(eid, cam, aspect)
+        wm     = self.world.get_component(eid, Transform).world_matrix(self.world)
+        cpos_p = wm[3, :3].astype(np.float32)
+
+        # Fondo oscuro + render de escena en viewport recortado
+        glEnable(GL_SCISSOR_TEST)
+        glScissor(px, py, pw, ph)
+        glViewport(px, py, pw, ph)
+        glClearColor(0.08, 0.08, 0.10, 1.0)
+        glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT)
+        glClearColor(0.15, 0.15, 0.17, 1.0)   # restaurar color de clear principal
+
+        old_view = self.render_system.view
+        old_proj = self.render_system.projection
+        old_cpos = self.render_system.camera_pos
+
+        self.render_system.view       = view_p
+        self.render_system.projection = proj_p
+        self.render_system.camera_pos = cpos_p
+        self.render_system.update(0)
+
+        self.render_system.view       = old_view
+        self.render_system.projection = old_proj
+        self.render_system.camera_pos = old_cpos
+
+        # Skybox en el preview
+        skybox = self._skyboxes.get(self.active_skybox)
+        if skybox:
+            skybox.draw(self.skybox_shader, view_p, proj_p)
+
+        glDisable(GL_SCISSOR_TEST)
+        glViewport(0, 0, W, H)
+
+        # Borde blanco alrededor del preview usando el flat_shader en NDC local
+        # Convertimos el rect de píxeles a NDC del viewport principal
+        def _px_to_ndc_x(x): return x / W * 2 - 1
+        def _px_to_ndc_y(y): return y / H * 2 - 1
+
+        x0 = _px_to_ndc_x(px - 1)
+        x1 = _px_to_ndc_x(px + pw + 1)
+        y0 = _px_to_ndc_y(py - 1)
+        y1 = _px_to_ndc_y(py + ph + 1)
+        bw = 2.0 / W  # 1 px en NDC
+
+        border_verts = np.array([
+            x0, y1-bw, 0,  x1, y1-bw, 0,  x1, y1, 0,   x0, y1-bw, 0,  x1, y1, 0,  x0, y1, 0,
+            x0, y0, 0,     x1, y0, 0,     x1, y0+bw, 0, x0, y0, 0,     x1, y0+bw, 0, x0, y0+bw, 0,
+            x0, y0+bw, 0,  x0+bw, y0+bw, 0, x0+bw, y1-bw, 0, x0, y0+bw, 0, x0+bw, y1-bw, 0, x0, y1-bw, 0,
+            x1-bw, y0+bw, 0, x1, y0+bw, 0, x1, y1-bw, 0, x1-bw, y0+bw, 0, x1, y1-bw, 0, x1-bw, y1-bw, 0,
+        ], dtype=np.float32)
+
+        glDisable(GL_DEPTH_TEST)
+        self.flat_shader.use()
+        self.flat_shader.set_mat4("uModel",      np.eye(4, dtype=np.float32))
+        self.flat_shader.set_mat4("uView",       np.eye(4, dtype=np.float32))
+        self.flat_shader.set_mat4("uProjection", np.eye(4, dtype=np.float32))
+        self.flat_shader.set_vec3("uColor", np.array([0.8, 0.8, 0.9], np.float32))
+        glBindBuffer(GL_ARRAY_BUFFER, self._border_vbo)
+        glBufferData(GL_ARRAY_BUFFER, border_verts.nbytes, border_verts, GL_DYNAMIC_DRAW)
+        glBindVertexArray(self._border_vao)
+        glDrawArrays(GL_TRIANGLES, 0, 24)
+        glBindVertexArray(0)
+        glEnable(GL_DEPTH_TEST)
+
+        # Etiqueta "CAM" superpuesta como QLabel (se posiciona en coordenadas Qt)
+        if not hasattr(self, '_preview_label'):
+            self._preview_label = QLabel("CAM", self)
+            self._preview_label.setStyleSheet(
+                "QLabel{color:#fff;background:rgba(0,0,0,140);"
+                "padding:1px 5px;border:none;font-size:10px;font-weight:bold;}")
+        self._preview_label.adjustSize()
+        # Qt Y=0 está arriba; GL py=8 desde abajo → Qt y = H - (py + ph)
+        self._preview_label.move(px + 4, H - (py + ph) + 4)
+        self._preview_label.show()
+
+    def _hide_mini_preview_label(self) -> None:
+        if hasattr(self, '_preview_label'):
+            self._preview_label.hide()
+
     def _update_state_label(self) -> None:
         if self._game_state == "playing":
             self._state_label.setText("▶  REPRODUCIENDO  —  WASD mover  ·  Mouse girar  ·  Espacio saltar  ·  Esc detener")
@@ -476,6 +587,10 @@ class Viewport(QOpenGLWidget):
             self._state_label.show()
         else:
             self._state_label.hide()
+
+        # Ocultar preview label cuando no está en modo editor
+        if self._game_state != "stopped":
+            self._hide_mini_preview_label()
 
     # ── Geometría wireframe de colliders ──────────────────────────────────
     def _make_wire_box(self):
@@ -516,6 +631,123 @@ class Viewport(QOpenGLWidget):
         glEnableVertexAttribArray(0)
         glBindVertexArray(0)
         return vao, N * 3 * 2
+
+    def _draw_camera_frustums(self, view, proj) -> None:
+        """Dibuja el ícono y frustum corto de cada entidad con Camera en el editor."""
+        NEAR = 0.25   # plano próximo del frustum visual
+        FAR  = 2.0    # plano lejano del frustum visual (corto, solo orientativo)
+        ASPECT = 16.0 / 9.0
+
+        selected_eid = self.world.selected_entity
+
+        glDisable(GL_DEPTH_TEST)
+        self.flat_shader.use()
+        self.flat_shader.set_mat4("uView",       view)
+        self.flat_shader.set_mat4("uProjection", proj)
+        self.flat_shader.set_mat4("uModel",      np.eye(4, dtype=np.float32))
+
+        for eid in self.world.all_entities():
+            cam = self.world.get_component(eid, Camera)
+            if cam is None:
+                continue
+            tr = self.world.get_component(eid, Transform)
+            if tr is None:
+                continue
+
+            wm = tr.world_matrix(self.world)
+            pos = wm[3, :3].astype(np.float32)
+
+            # Ejes locales normalizados de la cámara
+            right_v = wm[0, :3].astype(np.float32)
+            up_v    = wm[1, :3].astype(np.float32)
+            back_v  = wm[2, :3].astype(np.float32)
+            for v in (right_v, up_v, back_v):
+                n = np.linalg.norm(v)
+                if n > 1e-8:
+                    v /= n
+            fwd = -back_v
+
+            # Semidimensiones de los planos near/far del frustum visual
+            if cam.projection == "orthographic":
+                hw_n = hw_f = cam.ortho_size * ASPECT * 0.5
+                hh_n = hh_f = cam.ortho_size * 0.5
+            else:
+                tan_h = np.tan(np.radians(cam.fov * 0.5))
+                hh_n  = NEAR * tan_h;  hw_n = hh_n * ASPECT
+                hh_f  = FAR  * tan_h;  hw_f = hh_f * ASPECT
+
+            # Centros de los planos
+            nc = pos + fwd * NEAR
+            fc = pos + fwd * FAR
+
+            # 4 esquinas de cada plano (orden: TR, TL, BL, BR)
+            def _corners(center, hw, hh):
+                r, u = right_v, up_v
+                return [
+                    center + r*hw + u*hh,
+                    center - r*hw + u*hh,
+                    center - r*hw - u*hh,
+                    center + r*hw - u*hh,
+                ]
+            nc4 = _corners(nc, hw_n, hh_n)
+            fc4 = _corners(fc, hw_f, hh_f)
+
+            # Construcción del buffer de líneas
+            lines = []
+            # Rectángulo near
+            for i in range(4):
+                lines += list(nc4[i]); lines += list(nc4[(i+1) % 4])
+            # Rectángulo far
+            for i in range(4):
+                lines += list(fc4[i]); lines += list(fc4[(i+1) % 4])
+            # Conectoras near→far
+            for i in range(4):
+                lines += list(nc4[i]); lines += list(fc4[i])
+            # Líneas desde el apex (solo perspectiva, da el efecto de pirámide)
+            if cam.projection != "orthographic":
+                for c in nc4:
+                    lines += list(pos); lines += list(c)
+
+            # ── Icono de cuerpo de cámara (caja pequeña detrás del apex) ──
+            # Un pequeño rectángulo que representa el "cuerpo" de la cámara
+            body_d = 0.15   # semiprofundidad del cuerpo
+            body_h = 0.10
+            body_w = 0.14
+            body_f = pos - fwd * body_d   # frente del cuerpo = apex de la cámara
+            body_b = pos - fwd * (body_d + body_d * 2)  # trasero
+
+            def _box_corners(center, fw, fh):
+                return [
+                    center + right_v*fw + up_v*fh,
+                    center - right_v*fw + up_v*fh,
+                    center - right_v*fw - up_v*fh,
+                    center + right_v*fw - up_v*fh,
+                ]
+            bf4 = _box_corners(body_f, body_w, body_h)
+            bb4 = _box_corners(body_b, body_w, body_h)
+            for i in range(4):
+                lines += list(bf4[i]); lines += list(bf4[(i+1) % 4])
+                lines += list(bb4[i]); lines += list(bb4[(i+1) % 4])
+                lines += list(bf4[i]); lines += list(bb4[i])
+
+            verts = np.array(lines, dtype=np.float32)
+
+            # Color: amarillo dorado si es la principal/seleccionada, cian si no
+            if eid == selected_eid:
+                color = np.array([1.0, 0.6, 0.05], np.float32)
+            elif cam.is_main:
+                color = np.array([1.0, 0.85, 0.15], np.float32)
+            else:
+                color = np.array([0.25, 0.75, 1.0], np.float32)
+
+            self.flat_shader.set_vec3("uColor", color)
+            glBindBuffer(GL_ARRAY_BUFFER, self._cam_frust_vbo)
+            glBufferData(GL_ARRAY_BUFFER, verts.nbytes, verts, GL_DYNAMIC_DRAW)
+            glBindVertexArray(self._cam_frust_vao)
+            glDrawArrays(GL_LINES, 0, len(verts) // 3)
+            glBindVertexArray(0)
+
+        glEnable(GL_DEPTH_TEST)
 
     def _draw_collider_wireframe(self, view, proj) -> None:
         """Dibuja el wireframe verde del collider de la entidad seleccionada."""
@@ -627,16 +859,20 @@ class Viewport(QOpenGLWidget):
                 cam_comp = self.world.get_component(self._preview_camera_eid, Camera)
                 if cam_comp is not None:
                     view, proj = self._get_cam_view_proj(self._preview_camera_eid, cam_comp, aspect)
+                    _ptr = self.world.get_component(self._preview_camera_eid, Transform)
+                    cam_pos = _ptr.world_matrix(self.world)[3,:3] if _ptr else self.camera.position
                 else:
-                    view = self.camera.view_matrix()
-                    proj = self.camera.projection_matrix(aspect)
+                    view    = self.camera.view_matrix()
+                    proj    = self.camera.projection_matrix(aspect)
+                    cam_pos = self.camera.position
             elif self._fps_mode:
-                view = self._fps_view()
-                proj = self.camera.projection_matrix(aspect)
+                view    = self._fps_view()
+                proj    = self.camera.projection_matrix(aspect)
+                cam_pos = self._fps_pos
             else:
-                view = self.camera.view_matrix()
-                proj = self.camera.projection_matrix(aspect)
-            cam_pos = self.camera.position
+                view    = self.camera.view_matrix()
+                proj    = self.camera.projection_matrix(aspect)
+                cam_pos = self.camera.position
 
         # ── Sistemas (solo activos cuando se está jugando, no en pausa) ─────
         _running = self._game_state == "playing"
@@ -686,6 +922,10 @@ class Viewport(QOpenGLWidget):
         # Wireframe del collider de la entidad seleccionada
         self._draw_collider_wireframe(view, proj)
 
+        # Frustums de cámaras (solo en modo editor)
+        if self._game_state == "stopped":
+            self._draw_camera_frustums(view, proj)
+
         # Borde de indicador de modo juego (sobre todo lo demás)
         if self._game_state != "stopped":
             self._draw_play_border()
@@ -693,6 +933,10 @@ class Viewport(QOpenGLWidget):
         # ── Aplicar efectos de post-procesado y volcar a pantalla ─────────
         if pp and pp.enabled:
             pp.end()
+
+        # ── Preview en miniatura de la cámara principal (solo modo editor) ──
+        if self._game_state == "stopped":
+            self._draw_mini_preview()
 
     def _do_shadow_pass(self) -> None:
         """Renderiza la escena desde el punto de vista de la luz (depth only)."""

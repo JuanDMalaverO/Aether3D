@@ -92,6 +92,11 @@ class MainWindow(QMainWindow):
             act.triggered.connect(lambda checked, m=mesh_name: self._on_add_primitive(m))
             tb.addAction(act)
 
+        cam_act = QAction("＋ Cámara", self)
+        cam_act.setToolTip("Añadir entidad Camera a la escena")
+        cam_act.triggered.connect(self._on_add_camera)
+        tb.addAction(cam_act)
+
         # ── Selector de velocidad WASD ────────────────────────────────
         tb.addSeparator()
         vel_lbl = QLabel("  Vel.:")
@@ -437,6 +442,21 @@ class MainWindow(QMainWindow):
         self.inspector.set_entity(eid)
         self.viewport.update()
         self.log(f"Añadido: {label}  (Transform · MeshRenderer · Rigidbody · Collider · Script)", "ok")
+
+    def _on_add_camera(self) -> None:
+        """Añade una entidad Cámara vacía (Transform + Camera + Script opcional)."""
+        eid = self.world.create_entity("Camera")
+        self.world.add_component(eid, Transform(
+            position=np.array([0.0, 1.7, 5.0], dtype=np.float32),
+        ))
+        self.world.add_component(eid, Camera(fov=60.0, near=0.1, far=1000.0, is_main=False))
+        self.world.add_component(eid, Script(path=""))
+        self.world.selected_entity = eid
+        self._populate_hierarchy_tree()
+        self._select_tree_item(eid)
+        self.inspector.set_entity(eid)
+        self.viewport.update()
+        self.log("Añadida: Camera  (Transform · Camera · Script)", "ok")
 
     def _on_new_scene(self) -> None:
         reply = QMessageBox.question(
