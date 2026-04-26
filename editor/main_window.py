@@ -38,6 +38,10 @@ class MainWindow(QMainWindow):
         self._connect_actions()
         self._populate_hierarchy_tree()
         self._log_welcome()
+        self.setWindowTitle("Aether3D — Editor  ·  Juan Malaver")
+        self.statusBar().showMessage(
+            "Aether3D v1.0  ·  Desarrollado por Juan Malaver  ·  PBR · Física · Scripting · ECS"
+        )
 
     # ---------- Inyección del viewport OpenGL ----------
     def _setup_viewport(self):
@@ -282,12 +286,18 @@ class MainWindow(QMainWindow):
         self.actionGuardar.triggered.connect(self._on_save_scene)
         self.actionResetCamara.triggered.connect(self._on_reset_camera)
 
-        # Importar modelo OBJ (justo antes de Salir)
+        # Importar modelo OBJ
         self._import_action = QAction("Importar modelo (.obj)…", self)
         self._import_action.setShortcut("Ctrl+I")
         self._import_action.triggered.connect(self._on_import_obj)
         self.menuArchivo.insertSeparator(self.actionSalir)
         self.menuArchivo.insertAction(self.actionSalir, self._import_action)
+
+        # Acerca de Aether3D
+        about_act = QAction("Acerca de Aether3D…", self)
+        about_act.triggered.connect(self._on_about)
+        self.menuVer.addSeparator()
+        self.menuVer.addAction(about_act)
 
         # Submenú Skybox en Ver
         self.menuVer.addSeparator()
@@ -616,6 +626,34 @@ class MainWindow(QMainWindow):
         self.inspector.set_entity(None)
         self.viewport.update()
 
+    def _on_open_scene_path(self, filepath: str) -> None:
+        """Carga una escena directamente desde ruta (llamado desde StartScreen)."""
+        try:
+            with open(filepath, 'r', encoding='utf-8') as fh:
+                data = json.load(fh)
+        except Exception as exc:
+            self.log(f"Error al cargar escena: {exc}", "error")
+            return
+        self.world.clear_all()
+        self.viewport.mesh_sources.clear()
+        from engine.scene.serializer import world_from_dict
+        known = set(self.viewport.mesh_registry.keys()) if hasattr(self.viewport, 'mesh_registry') else set()
+        warnings, _ = world_from_dict(self.world, data, known)
+        for w in warnings:
+            self.log(w, "warn")
+        from editor.start_screen import record_opened_scene
+        record_opened_scene(filepath)
+        n = len(self.world.all_entities())
+        self.log(f"Escena cargada: {os.path.basename(filepath)}  ({n} entidades)", "ok")
+        self._populate_hierarchy_tree()
+        self.inspector.set_entity(None)
+        self.viewport.update()
+
+    def _on_about(self) -> None:
+        from editor.about_dialog import AboutDialog
+        dlg = AboutDialog(self)
+        dlg.exec()
+
     def _on_reset_camera(self):
         import numpy as np
         self.viewport.camera.target = np.array([0.0, 0.0, 0.0], dtype=np.float32)
@@ -713,9 +751,10 @@ class MainWindow(QMainWindow):
 
     # ---------- Consola ----------
     def _log_welcome(self):
-        self.log("Editor iniciado | Motor desarrollado por: Juan Malaver, Jose Polo, Carlos Pene & Juan Borja ", "ok")
-        self.log("Jerarquía: arrastra un ítem sobre otro para parentear · clic derecho para quitar padre", "muted")
-        self.log("Controles: MMB arrastrar = orbitar | Shift+MMB = pan | Scroll = zoom", "muted")
+        self.log("AETHER3D — Motor 3D desarrollado íntegramente por Juan Malaver", "ok")
+        self.log("Pipeline PBR · ECS · Física · Scripting · Partículas GPU · Cámaras múltiples", "muted")
+        self.log("Jerarquía: arrastra un ítem sobre otro para parentear · clic derecho para opciones", "muted")
+        self.log("Viewport: MMB arrastrar = orbitar · Shift+MMB = pan · Scroll = zoom · WASD = volar", "muted")
 
     def log(self, message: str, level: str = "info"):
         colors = {
