@@ -3,41 +3,129 @@
  <class>MainWindow</class>
  <widget class="QMainWindow" name="MainWindow">
   <property name="geometry">
-   <rect>
-    <x>0</x>
-    <y>0</y>
-    <width>1400</width>
-    <height>900</height>
-   </rect>
+   <rect><x>0</x><y>0</y><width>1440</width><height>920</height></rect>
   </property>
   <property name="windowTitle">
-   <string>Motor 3D — Editor</string>
+   <string>Aether3D</string>
   </property>
   <property name="styleSheet">
-   <string notr="true">QMainWindow, QWidget { background: #2b2b2b; color: #dcdcdc; }
-QDockWidget { color: #dcdcdc; }
+   <string notr="true">
+
+/* ── Base ─────────────────────────────────────────────────────────── */
+QMainWindow, QWidget {
+    background: #0f0f11;
+    color: #d4d4e0;
+    font-family: "Segoe UI", system-ui, sans-serif;
+    font-size: 12px;
+}
+
+/* ── Menu bar ─────────────────────────────────────────────────────── */
+QMenuBar {
+    background: #0a0a0c;
+    color: #a0a0b8;
+    border-bottom: 1px solid #1e1e28;
+    padding: 2px 4px;
+    spacing: 2px;
+}
+QMenuBar::item {
+    padding: 4px 10px;
+    border-radius: 4px;
+}
+QMenuBar::item:selected, QMenuBar::item:pressed {
+    background: #1e1e2e;
+    color: #d4d4e0;
+}
+QMenu {
+    background: #13131a;
+    color: #d4d4e0;
+    border: 1px solid #2a2a3a;
+    border-radius: 6px;
+    padding: 4px 0;
+}
+QMenu::item {
+    padding: 6px 28px 6px 14px;
+}
+QMenu::item:selected {
+    background: #6c63ff22;
+    color: #c4bcff;
+}
+QMenu::separator {
+    height: 1px;
+    background: #2a2a3a;
+    margin: 4px 8px;
+}
+
+/* ── Dock widgets ─────────────────────────────────────────────────── */
+QDockWidget {
+    color: #d4d4e0;
+    titlebar-close-icon: none;
+    titlebar-normal-icon: none;
+}
 QDockWidget::title {
-    background: #1e1e1e;
-    padding: 6px;
-    border-bottom: 1px solid #3a3a3a;
-    font-weight: bold;
+    background: #0f0f14;
+    color: #7070a0;
+    padding: 6px 10px;
+    border-bottom: 1px solid #1e1e2a;
+    font-size: 10px;
+    font-weight: 600;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
 }
-QListWidget, QTextEdit {
-    background: #1e1e1e;
-    border: 1px solid #3a3a3a;
-    color: #dcdcdc;
-    padding: 4px;
+
+/* ── Scroll area ──────────────────────────────────────────────────── */
+QScrollArea {
+    background: #0f0f11;
+    border: none;
 }
-QListWidget::item:selected { background: #4a7cb8; }
-QStatusBar { background: #1e1e1e; color: #aaa; }
-QMenuBar { background: #1e1e1e; color: #dcdcdc; }
-QMenuBar::item:selected { background: #3a3a3a; }
-QMenu { background: #2b2b2b; color: #dcdcdc; border: 1px solid #3a3a3a; }
-QMenu::item:selected { background: #4a7cb8; }
-QScrollArea { background: #2b2b2b; border: none; }</string>
+QScrollBar:vertical {
+    background: #0f0f11;
+    width: 8px;
+    margin: 0;
+}
+QScrollBar::handle:vertical {
+    background: #2a2a40;
+    border-radius: 4px;
+    min-height: 24px;
+}
+QScrollBar::handle:vertical:hover { background: #3a3a58; }
+QScrollBar::add-line:vertical, QScrollBar::sub-line:vertical { height: 0; }
+QScrollBar:horizontal {
+    background: #0f0f11;
+    height: 8px;
+}
+QScrollBar::handle:horizontal {
+    background: #2a2a40;
+    border-radius: 4px;
+    min-width: 24px;
+}
+QScrollBar::handle:horizontal:hover { background: #3a3a58; }
+QScrollBar::add-line:horizontal, QScrollBar::sub-line:horizontal { width: 0; }
+
+/* ── Text edit (consola) ─────────────────────────────────────────── */
+QTextEdit {
+    background: #080810;
+    border: none;
+    color: #9090b0;
+    padding: 6px 8px;
+    font-family: "Cascadia Code", "JetBrains Mono", "Consolas", monospace;
+    font-size: 11px;
+    selection-background-color: #6c63ff44;
+}
+
+/* ── Status bar ──────────────────────────────────────────────────── */
+QStatusBar {
+    background: #080810;
+    color: #50506a;
+    border-top: 1px solid #1a1a26;
+    font-size: 11px;
+    padding: 0 8px;
+}
+QStatusBar::item { border: none; }
+
+   </string>
   </property>
 
-  <!-- CENTRAL WIDGET: contenedor del viewport OpenGL -->
+  <!-- CENTRAL WIDGET -->
   <widget class="QWidget" name="centralwidget">
    <layout class="QVBoxLayout" name="centralLayout">
     <property name="leftMargin"><number>0</number></property>
@@ -49,8 +137,7 @@ QScrollArea { background: #2b2b2b; border: none; }</string>
      <widget class="QWidget" name="viewportContainer" native="true">
       <property name="sizePolicy">
        <sizepolicy hsizetype="Expanding" vsizetype="Expanding">
-        <horstretch>0</horstretch>
-        <verstretch>0</verstretch>
+        <horstretch>0</horstretch><verstretch>0</verstretch>
        </sizepolicy>
       </property>
       <layout class="QVBoxLayout" name="viewportLayout">
@@ -68,9 +155,7 @@ QScrollArea { background: #2b2b2b; border: none; }</string>
   <!-- MENU BAR -->
   <widget class="QMenuBar" name="menubar">
    <property name="geometry">
-    <rect>
-     <x>0</x><y>0</y><width>1400</width><height>25</height>
-    </rect>
+    <rect><x>0</x><y>0</y><width>1440</width><height>26</height></rect>
    </property>
    <widget class="QMenu" name="menuArchivo">
     <property name="title"><string>Archivo</string></property>
@@ -97,8 +182,9 @@ QScrollArea { background: #2b2b2b; border: none; }</string>
   <!-- STATUS BAR -->
   <widget class="QStatusBar" name="statusbar"/>
 
-  <!-- DOCK: JERARQUÍA (izquierda) -->
+  <!-- DOCK: JERARQUÍA -->
   <widget class="QDockWidget" name="dockHierarchy">
+   <property name="minimumSize"><size><width>220</width><height>100</height></size></property>
    <property name="features">
     <set>QDockWidget::DockWidgetFloatable|QDockWidget::DockWidgetMovable</set>
    </property>
@@ -106,10 +192,11 @@ QScrollArea { background: #2b2b2b; border: none; }</string>
    <attribute name="dockWidgetArea"><number>1</number></attribute>
    <widget class="QWidget" name="hierarchyContent">
     <layout class="QVBoxLayout" name="hierarchyLayout">
-     <property name="leftMargin"><number>4</number></property>
-     <property name="topMargin"><number>4</number></property>
-     <property name="rightMargin"><number>4</number></property>
-     <property name="bottomMargin"><number>4</number></property>
+     <property name="leftMargin"><number>0</number></property>
+     <property name="topMargin"><number>0</number></property>
+     <property name="rightMargin"><number>0</number></property>
+     <property name="bottomMargin"><number>0</number></property>
+     <property name="spacing"><number>0</number></property>
      <item>
       <widget class="QListWidget" name="hierarchyList"/>
      </item>
@@ -117,11 +204,9 @@ QScrollArea { background: #2b2b2b; border: none; }</string>
    </widget>
   </widget>
 
-  <!-- DOCK: INSPECTOR (derecha) -->
+  <!-- DOCK: INSPECTOR -->
   <widget class="QDockWidget" name="dockInspector">
-   <property name="minimumSize">
-    <size><width>280</width><height>100</height></size>
-   </property>
+   <property name="minimumSize"><size><width>290</width><height>100</height></size></property>
    <property name="features">
     <set>QDockWidget::DockWidgetFloatable|QDockWidget::DockWidgetMovable</set>
    </property>
@@ -138,37 +223,13 @@ QScrollArea { background: #2b2b2b; border: none; }</string>
        <property name="widgetResizable"><bool>true</bool></property>
        <widget class="QWidget" name="inspectorContent">
         <property name="geometry">
-         <rect><x>0</x><y>0</y><width>280</width><height>600</height></rect>
+         <rect><x>0</x><y>0</y><width>290</width><height>600</height></rect>
         </property>
         <layout class="QVBoxLayout" name="inspectorLayout">
          <property name="leftMargin"><number>8</number></property>
          <property name="topMargin"><number>8</number></property>
          <property name="rightMargin"><number>8</number></property>
          <property name="bottomMargin"><number>8</number></property>
-         <item>
-          <widget class="QLabel" name="inspectorPlaceholder">
-           <property name="text">
-            <string>Selecciona una entidad
-para ver sus componentes
-
-(Próxima semana)</string>
-           </property>
-           <property name="alignment">
-            <set>Qt::AlignCenter</set>
-           </property>
-           <property name="styleSheet">
-            <string notr="true">color: #888; padding: 20px;</string>
-           </property>
-          </widget>
-         </item>
-         <item>
-          <spacer name="inspectorSpacer">
-           <property name="orientation"><enum>Qt::Vertical</enum></property>
-           <property name="sizeHint" stdset="0">
-            <size><width>20</width><height>40</height></size>
-           </property>
-          </spacer>
-         </item>
         </layout>
        </widget>
       </widget>
@@ -177,11 +238,9 @@ para ver sus componentes
    </widget>
   </widget>
 
-  <!-- DOCK: CONSOLA (abajo) -->
+  <!-- DOCK: CONSOLA -->
   <widget class="QDockWidget" name="dockConsole">
-   <property name="minimumSize">
-    <size><width>100</width><height>120</height></size>
-   </property>
+   <property name="minimumSize"><size><width>100</width><height>110</height></size></property>
    <property name="features">
     <set>QDockWidget::DockWidgetFloatable|QDockWidget::DockWidgetMovable</set>
    </property>
@@ -189,10 +248,10 @@ para ver sus componentes
    <attribute name="dockWidgetArea"><number>8</number></attribute>
    <widget class="QWidget" name="consoleContent">
     <layout class="QVBoxLayout" name="consoleLayout">
-     <property name="leftMargin"><number>4</number></property>
-     <property name="topMargin"><number>4</number></property>
-     <property name="rightMargin"><number>4</number></property>
-     <property name="bottomMargin"><number>4</number></property>
+     <property name="leftMargin"><number>0</number></property>
+     <property name="topMargin"><number>0</number></property>
+     <property name="rightMargin"><number>0</number></property>
+     <property name="bottomMargin"><number>0</number></property>
      <item>
       <widget class="QTextEdit" name="consoleOutput">
        <property name="readOnly"><bool>true</bool></property>
@@ -208,7 +267,7 @@ para ver sus componentes
    <property name="shortcut"><string>Ctrl+N</string></property>
   </action>
   <action name="actionAbrir">
-   <property name="text"><string>Abrir...</string></property>
+   <property name="text"><string>Abrir…</string></property>
    <property name="shortcut"><string>Ctrl+O</string></property>
   </action>
   <action name="actionGuardar">

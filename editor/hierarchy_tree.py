@@ -23,12 +23,34 @@ class HierarchyTree(QTreeWidget):
         self.customContextMenuRequested.connect(self._show_context_menu)
 
         self.setStyleSheet(
-            "QTreeWidget { background: #1e1e1e; color: #dcdcdc;"
-            "  border: none; outline: none; }"
-            "QTreeWidget::item { padding: 3px; }"
-            "QTreeWidget::item:selected { background: #4a7cb8; }"
-            "QTreeWidget::item:hover { background: #333; }"
-            "QTreeWidget::branch { background: #1e1e1e; }"
+            "QTreeWidget {"
+            "  background: #0c0c11;"
+            "  color: #b0b0cc;"
+            "  border: none;"
+            "  outline: none;"
+            "  font-size: 12px;"
+            "}"
+            "QTreeWidget::item {"
+            "  padding: 4px 4px;"
+            "  border-radius: 3px;"
+            "}"
+            "QTreeWidget::item:selected {"
+            "  background: #6c63ff28;"
+            "  color: #c4bcff;"
+            "  border-left: 2px solid #6c63ff;"
+            "}"
+            "QTreeWidget::item:hover:!selected {"
+            "  background: #1a1a28;"
+            "  color: #d0d0e8;"
+            "}"
+            "QTreeWidget::branch {"
+            "  background: #0c0c11;"
+            "}"
+            "QTreeWidget::branch:has-children:!has-siblings:closed,"
+            "QTreeWidget::branch:closed:has-children:has-siblings {"
+            "  border-image: none;"
+            "  image: none;"
+            "}"
         )
 
     # ------------------------------------------------------------------ #
@@ -64,15 +86,29 @@ class HierarchyTree(QTreeWidget):
 
         menu = QMenu(self)
         menu.setStyleSheet(
-            "QMenu { background: #252525; color: #dcdcdc; border: 1px solid #3a3a3a; }"
-            "QMenu::item { padding: 5px 20px 5px 12px; }"
-            "QMenu::item:selected { background: #4a7cb8; }"
-            "QMenu::separator { background: #3a3a3a; height: 1px; margin: 3px 6px; }"
+            "QMenu {"
+            "  background: #111118;"
+            "  color: #c0c0d8;"
+            "  border: 1px solid #2a2a3c;"
+            "  border-radius: 6px;"
+            "  padding: 4px 0;"
+            "  font-size: 12px;"
+            "}"
+            "QMenu::item { padding: 6px 24px 6px 14px; }"
+            "QMenu::item:selected {"
+            "  background: #6c63ff22;"
+            "  color: #c4bcff;"
+            "}"
+            "QMenu::separator {"
+            "  background: #2a2a3c;"
+            "  height: 1px;"
+            "  margin: 4px 8px;"
+            "}"
         )
-        rename_act = menu.addAction("✏  Renombrar")
-        clear_act  = menu.addAction("Quitar padre  (hacer raíz)")
+        rename_act = menu.addAction("Renombrar")
+        clear_act  = menu.addAction("Quitar padre")
         menu.addSeparator()
-        delete_act = menu.addAction("Eliminar entidad")
+        delete_act = menu.addAction("Eliminar")
 
         chosen = menu.exec(self.viewport().mapToGlobal(pos))
         if chosen == rename_act:

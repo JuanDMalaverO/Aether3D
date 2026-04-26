@@ -18,15 +18,64 @@ from engine.components import Transform, MeshRenderer, Rigidbody, Collider, Scri
 _AVAILABLE_MESHES = ["cube", "sphere", "plane"]
 
 _FRAME_STYLE = (
-    "QFrame { border: 1px solid #3a3a3a; border-radius: 4px;"
-    "         background: #252525; }"
+    "QFrame {"
+    "  border: none;"
+    "  border-radius: 6px;"
+    "  background: #13131c;"
+    "}"
 )
-_HEADER_STYLE = "font-weight: bold; color: #aad4ff; border: none; padding-bottom: 2px;"
-_LABEL_STYLE  = "color: #aaaaaa; font-size: 11px; border: none;"
+_HEADER_STYLE = (
+    "font-weight: 600;"
+    "font-size: 11px;"
+    "letter-spacing: 0.06em;"
+    "color: #6060a0;"
+    "border: none;"
+    "padding-bottom: 4px;"
+    "text-transform: uppercase;"
+)
+_LABEL_STYLE  = "color: #50506a; font-size: 11px; border: none;"
 _SPIN_STYLE   = (
-    "QDoubleSpinBox { background: #1e1e1e; color: #dcdcdc;"
-    "  border: 1px solid #3a3a3a; padding: 1px 3px; }"
+    "QDoubleSpinBox {"
+    "  background: #0c0c14;"
+    "  color: #c0c0d8;"
+    "  border: 1px solid #2a2a3c;"
+    "  border-radius: 4px;"
+    "  padding: 2px 4px;"
+    "  font-size: 11px;"
+    "}"
+    "QDoubleSpinBox:focus { border-color: #6c63ff66; }"
 )
+_COMBO_STYLE = (
+    "QComboBox {"
+    "  background: #0c0c14;"
+    "  color: #c0c0d8;"
+    "  border: 1px solid #2a2a3c;"
+    "  border-radius: 4px;"
+    "  padding: 2px 6px;"
+    "  font-size: 11px;"
+    "}"
+    "QComboBox:focus { border-color: #6c63ff66; }"
+    "QComboBox::drop-down { border: none; width: 14px; }"
+    "QComboBox QAbstractItemView {"
+    "  background: #0c0c14;"
+    "  color: #c0c0d8;"
+    "  border: 1px solid #2a2a3c;"
+    "  selection-background-color: #6c63ff33;"
+    "}"
+)
+_BTN_STYLE = (
+    "QPushButton {"
+    "  background: #1a1a28;"
+    "  color: #8888b0;"
+    "  border: 1px solid #2a2a3c;"
+    "  border-radius: 4px;"
+    "  padding: 3px 8px;"
+    "  font-size: 11px;"
+    "}"
+    "QPushButton:hover { background: #6c63ff22; border-color: #6c63ff66; color: #c4bcff; }"
+    "QPushButton:pressed { background: #6c63ff33; }"
+)
+_CHECK_STYLE  = "QCheckBox { color: #8888a8; border: none; font-size: 11px; }"
 
 
 class InspectorWidget(QWidget):
@@ -44,11 +93,12 @@ class InspectorWidget(QWidget):
         # Ancho mínimo: label (50) + 3 spinboxes (3×48) + espacios + márgenes ≈ 220 px.
         # El QScrollArea respeta este mínimo y agrega scrollbar horizontal si el
         # dock es más estrecho, evitando que el contenido salga del panel.
-        self.setMinimumWidth(220)
+        self.setMinimumWidth(240)
+        self.setStyleSheet("QWidget { background: #0f0f14; }")
 
         self._layout = QVBoxLayout(self)
-        self._layout.setContentsMargins(4, 4, 4, 4)
-        self._layout.setSpacing(6)
+        self._layout.setContentsMargins(6, 8, 6, 8)
+        self._layout.setSpacing(4)
         self._layout.setAlignment(Qt.AlignmentFlag.AlignTop)
 
         # ── Secciones permanentes ─────────────────────────────────────────
@@ -62,7 +112,10 @@ class InspectorWidget(QWidget):
         # ── Contenido dinámico (entidad seleccionada) ─────────────────────
         self._placeholder = QLabel("Selecciona una entidad\npara ver sus componentes")
         self._placeholder.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        self._placeholder.setStyleSheet("color: #888; padding: 20px; border: none;")
+        self._placeholder.setStyleSheet(
+            "color: #30304a; padding: 32px 16px; border: none;"
+            "font-size: 12px; letter-spacing: 0.02em;"
+        )
         self._layout.addWidget(self._placeholder)
 
     # ------------------------------------------------------------------ #
@@ -133,8 +186,8 @@ class InspectorWidget(QWidget):
         s = QFrame()
         s.setFrameShape(QFrame.Shape.HLine)
         s.setStyleSheet(
-            "QFrame { color: #3a3a3a; background: #3a3a3a; border: none;"
-            "  max-height: 1px; margin: 2px 0; }"
+            "QFrame { color: #1a1a26; background: #1a1a26; border: none;"
+            "  max-height: 1px; margin: 4px 0; }"
         )
         return s
 
@@ -146,7 +199,7 @@ class InspectorWidget(QWidget):
         grid.addWidget(self._lbl("Sombras"), 0, 0)
         chk = QCheckBox()
         chk.setChecked(True)
-        chk.setStyleSheet("QCheckBox { color: #dcdcdc; border: none; }")
+        chk.setStyleSheet("QCheckBox { color: #8888a8; border: none; font-size: 11px; }")
         grid.addWidget(chk, 0, 1, 1, 3)
 
         # Spinbox: bias
@@ -478,7 +531,7 @@ class InspectorWidget(QWidget):
         def _chk(row, label, val, setter):
             grid.addWidget(self._lbl(label), row, 0)
             chk = QCheckBox(); chk.setChecked(val)
-            chk.setStyleSheet("QCheckBox { color: #dcdcdc; border: none; }")
+            chk.setStyleSheet("QCheckBox { color: #8888a8; border: none; font-size: 11px; }")
             grid.addWidget(chk, row, 1, 1, 3)
             chk.stateChanged.connect(lambda s: setter(bool(s)))
             return chk
@@ -499,8 +552,8 @@ class InspectorWidget(QWidget):
         combo.addItems(["aabb", "sphere"])
         combo.setCurrentText(col.shape)
         combo.setStyleSheet(
-            "QComboBox { background: #1e1e1e; color: #dcdcdc; border: 1px solid #3a3a3a; padding: 2px; }"
-            "QComboBox QAbstractItemView { background: #1e1e1e; color: #dcdcdc; selection-background-color: #4a7cb8; }"
+            "QComboBox { background: #0c0c14; color: #c0c0d8; border: 1px solid #2a2a3c; border-radius: 4px; padding: 2px 6px; font-size: 11px; }"
+            "QComboBox QAbstractItemView { background: #0c0c14; color: #c0c0d8; border: 1px solid #2a2a3c; selection-background-color: #6c63ff33; }"
         )
         grid.addWidget(combo, 0, 1, 1, 3)
         combo.currentTextChanged.connect(lambda t: setattr(col, 'shape', t))
@@ -549,8 +602,8 @@ class InspectorWidget(QWidget):
         proj_combo.addItems(["perspective", "orthographic"])
         proj_combo.setCurrentText(cam.projection)
         proj_combo.setStyleSheet(
-            "QComboBox { background: #1e1e1e; color: #dcdcdc; border: 1px solid #3a3a3a; padding: 2px; }"
-            "QComboBox QAbstractItemView { background: #1e1e1e; color: #dcdcdc; selection-background-color: #4a7cb8; }"
+            "QComboBox { background: #0c0c14; color: #c0c0d8; border: 1px solid #2a2a3c; border-radius: 4px; padding: 2px 6px; font-size: 11px; }"
+            "QComboBox QAbstractItemView { background: #0c0c14; color: #c0c0d8; border: 1px solid #2a2a3c; selection-background-color: #6c63ff33; }"
         )
         grid.addWidget(proj_combo, 0, 1, 1, 3)
         proj_combo.currentTextChanged.connect(lambda t: setattr(cam, 'projection', t))
@@ -563,7 +616,7 @@ class InspectorWidget(QWidget):
         # is_main checkbox
         grid.addWidget(self._lbl("Principal"), 5, 0)
         chk = QCheckBox(); chk.setChecked(cam.is_main)
-        chk.setStyleSheet("QCheckBox { color: #dcdcdc; border: none; }")
+        chk.setStyleSheet("QCheckBox { color: #8888a8; border: none; font-size: 11px; }")
         grid.addWidget(chk, 5, 1, 1, 3)
         chk.stateChanged.connect(lambda s: setattr(cam, 'is_main', bool(s)))
 
@@ -575,9 +628,9 @@ class InspectorWidget(QWidget):
         name = self.world.get_entity_name(eid)
         lbl = QLabel(name)
         lbl.setStyleSheet(
-            "QLabel { font-size: 14px; font-weight: bold; color: #ffffff;"
+            "QLabel { font-size: 13px; font-weight: 600; color: #d0d0e8; letter-spacing: 0.01em;"
             "  padding: 6px 4px 4px 4px; border: none;"
-            "  border-bottom: 1px solid #3a3a3a; }"
+            "  border-bottom: 1px solid #1e1e2c; }"
         )
         return lbl
 
@@ -675,7 +728,7 @@ class InspectorWidget(QWidget):
         shape_combo.addItems(["point", "sphere", "cone"])
         shape_combo.setCurrentText(em.shape)
         shape_combo.setStyleSheet(
-            "QComboBox { background:#1e1e1e; color:#dcdcdc; border:1px solid #3a3a3a; padding:2px; }"
+            "QComboBox { background:#0c0c14; color:#c0c0d8; border:1px solid #2a2a3c; border-radius:4px; padding:2px 6px; font-size:11px; }"
             "QComboBox QAbstractItemView { background:#1e1e1e; color:#dcdcdc; selection-background-color:#4a7cb8; }")
         grid.addWidget(shape_combo, r, 1, 1, 3)
         shape_combo.currentTextChanged.connect(lambda t: setattr(em, 'shape', t)); r += 1
@@ -715,7 +768,7 @@ class InspectorWidget(QWidget):
             load_btn.setStyleSheet(
                 "QPushButton{background:#2a4a70;color:#ccc;border:1px solid #3a5a90;"
                 "border-radius:3px;padding:2px 6px;}"
-                "QPushButton:hover{background:#3a5a90;}")
+                "QPushButton:hover{background:#6c63ff44;color:#c4bcff;}")
             grid.addWidget(load_btn, r, 3)
 
             def _load_preset():
@@ -757,7 +810,7 @@ class InspectorWidget(QWidget):
         browse_btn.setStyleSheet(
             "QPushButton { background: #2a2a2a; color: #ccc;"
             "  border: 1px solid #3a3a3a; border-radius: 3px; padding: 2px; }"
-            "QPushButton:hover { background: #383838; }"
+            "QPushButton:hover { background: #6c63ff22; border-color: #6c63ff66; color: #c4bcff; }"
         )
         path_row.addWidget(browse_btn)
         vbox.addLayout(path_row)
@@ -775,7 +828,7 @@ class InspectorWidget(QWidget):
         open_btn.setStyleSheet(
             "QPushButton { background: #2a2a2a; color: #ccc;"
             "  border: 1px solid #3a3a3a; border-radius: 3px; padding: 3px 8px; }"
-            "QPushButton:hover { background: #383838; }"
+            "QPushButton:hover { background: #6c63ff22; border-color: #6c63ff66; color: #c4bcff; }"
         )
         btn_row.addWidget(open_btn)
 
@@ -858,23 +911,23 @@ class InspectorWidget(QWidget):
         frame = QFrame()
         frame.setStyleSheet(_FRAME_STYLE)
         vbox = QVBoxLayout(frame)
-        vbox.setContentsMargins(8, 6, 8, 8)
-        vbox.setSpacing(4)
+        vbox.setContentsMargins(10, 8, 10, 10)
+        vbox.setSpacing(6)
 
         header = QLabel(title)
         header.setStyleSheet(_HEADER_STYLE)
         vbox.addWidget(header)
 
         grid = QGridLayout()
-        grid.setColumnMinimumWidth(0, 52)   # label
-        grid.setColumnMinimumWidth(1, 48)   # spinbox X / widget
-        grid.setColumnMinimumWidth(2, 48)   # spinbox Y
-        grid.setColumnMinimumWidth(3, 48)   # spinbox Z
+        grid.setColumnMinimumWidth(0, 56)
+        grid.setColumnMinimumWidth(1, 44)
+        grid.setColumnMinimumWidth(2, 44)
+        grid.setColumnMinimumWidth(3, 44)
         grid.setColumnStretch(1, 1)
         grid.setColumnStretch(2, 1)
         grid.setColumnStretch(3, 1)
-        grid.setHorizontalSpacing(3)
-        grid.setVerticalSpacing(4)
+        grid.setHorizontalSpacing(4)
+        grid.setVerticalSpacing(5)
         vbox.addLayout(grid)
 
         return frame, grid
@@ -906,9 +959,10 @@ class InspectorWidget(QWidget):
     def _refresh_color_btn(self, btn: QPushButton, color: np.ndarray) -> None:
         r, g, b = int(color[0] * 255), int(color[1] * 255), int(color[2] * 255)
         lum = 0.299 * color[0] + 0.587 * color[1] + 0.114 * color[2]
-        fg = "#000" if lum > 0.5 else "#fff"
+        fg = "#000" if lum > 0.5 else "#eee"
         btn.setStyleSheet(
             f"QPushButton {{ background: rgb({r},{g},{b}); color: {fg};"
-            "  border: 1px solid #3a3a3a; border-radius: 3px; }}"
+            "  border: 1px solid #2a2a3c; border-radius: 4px;"
+            "  font-size: 10px; letter-spacing: 0.04em; }}"
         )
         btn.setText(f"#{r:02X}{g:02X}{b:02X}  ({color[0]:.2f}, {color[1]:.2f}, {color[2]:.2f})")

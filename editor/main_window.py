@@ -53,29 +53,80 @@ class MainWindow(QMainWindow):
 
     # ---------- Toolbar gizmos ----------
     def _setup_gizmo_toolbar(self):
+        _TB = (
+            "QToolBar {"
+            "  background: #0a0a0e;"
+            "  border-bottom: 1px solid #1c1c28;"
+            "  spacing: 1px;"
+            "  padding: 3px 6px;"
+            "}"
+            "QToolBar::separator {"
+            "  background: #1e1e2c;"
+            "  width: 1px;"
+            "  margin: 4px 6px;"
+            "}"
+            "QToolButton {"
+            "  color: #8888aa;"
+            "  background: transparent;"
+            "  border: 1px solid transparent;"
+            "  border-radius: 5px;"
+            "  padding: 4px 12px;"
+            "  font-size: 12px;"
+            "  font-weight: 500;"
+            "  min-width: 54px;"
+            "}"
+            "QToolButton:checked {"
+            "  background: #6c63ff22;"
+            "  border-color: #6c63ff66;"
+            "  color: #c4bcff;"
+            "}"
+            "QToolButton:hover:!checked {"
+            "  background: #1e1e2c;"
+            "  border-color: #2a2a3a;"
+            "  color: #b0b0cc;"
+            "}"
+            "QToolButton:pressed { background: #6c63ff33; }"
+            "QToolButton:disabled { color: #3a3a50; }"
+        )
+        _COMBO = (
+            "QComboBox {"
+            "  background: #13131c;"
+            "  color: #9090b8;"
+            "  border: 1px solid #2a2a3c;"
+            "  border-radius: 5px;"
+            "  padding: 3px 8px;"
+            "  font-size: 11px;"
+            "}"
+            "QComboBox:hover { border-color: #6c63ff66; color: #b0b0cc; }"
+            "QComboBox::drop-down { border: none; width: 18px; }"
+            "QComboBox::down-arrow { width: 0; height: 0; }"
+            "QComboBox QAbstractItemView {"
+            "  background: #13131c;"
+            "  color: #b0b0cc;"
+            "  border: 1px solid #2a2a3c;"
+            "  selection-background-color: #6c63ff33;"
+            "  outline: none;"
+            "}"
+        )
+        _LBL = "color: #4a4a6a; padding: 0 4px; font-size: 11px;"
+
         tb = QToolBar("Modos", self)
         tb.setMovable(False)
-        tb.setStyleSheet(
-            "QToolBar { background: #1a1a1a; border-bottom: 1px solid #333; spacing: 2px; padding: 2px; }"
-            "QToolButton { color: #ccc; background: #282828; border: 1px solid #3a3a3a;"
-            "  border-radius: 4px; padding: 4px 14px; font-size: 13px; min-width: 64px; }"
-            "QToolButton:checked { background: #3a6ea8; border-color: #4d88c2; color: #fff; }"
-            "QToolButton:hover:!checked { background: #383838; }"
-        )
+        tb.setStyleSheet(_TB)
         self.addToolBar(Qt.ToolBarArea.TopToolBarArea, tb)
 
         group = QActionGroup(self)
         group.setExclusive(True)
         for key, label, tip in [
-            ("select",    "↙ Select",   "Seleccionar entidades con clic"),
-            ("translate", "⭠ Move",     "Mover — arrastra un eje"),
-            ("rotate",    "↺ Rotate",   "Rotar — arrastra un anillo"),
-            ("scale",     "▦ Scale",    "Escalar — arrastra un eje"),
+            ("select",    "Select",   "Seleccionar entidades con clic"),
+            ("translate", "Move",     "Mover — arrastra un eje"),
+            ("rotate",    "Rotate",   "Rotar — arrastra un anillo"),
+            ("scale",     "Scale",    "Escalar — arrastra un eje"),
         ]:
             act = QAction(label, self)
             act.setCheckable(True)
             act.setToolTip(tip)
-            act.setChecked(key == "select")           # Select es el modo por defecto
+            act.setChecked(key == "select")
             act.triggered.connect(lambda checked, k=key: self.viewport.set_gizmo_mode(k))
             group.addAction(act)
             tb.addAction(act)
@@ -83,40 +134,33 @@ class MainWindow(QMainWindow):
         # ── Añadir primitivas ──────────────────────────────────────────
         tb.addSeparator()
         for mesh_name, label, tip in [
-            ("cube",   "＋ Cubo",   "Añadir cubo a la escena"),
-            ("sphere", "＋ Esfera", "Añadir esfera a la escena"),
-            ("plane",  "＋ Plano",  "Añadir plano a la escena"),
+            ("cube",   "+ Cubo",   "Añadir cubo a la escena"),
+            ("sphere", "+ Esfera", "Añadir esfera a la escena"),
+            ("plane",  "+ Plano",  "Añadir plano a la escena"),
         ]:
             act = QAction(label, self)
             act.setToolTip(tip)
             act.triggered.connect(lambda checked, m=mesh_name: self._on_add_primitive(m))
             tb.addAction(act)
 
-        cam_act = QAction("＋ Cámara", self)
+        cam_act = QAction("+ Cámara", self)
         cam_act.setToolTip("Añadir entidad Camera a la escena")
         cam_act.triggered.connect(self._on_add_camera)
         tb.addAction(cam_act)
 
         # ── Selector de velocidad WASD ────────────────────────────────
         tb.addSeparator()
-        vel_lbl = QLabel("  Vel.:")
-        vel_lbl.setStyleSheet("color: #aaa; padding: 0 2px;")
+        vel_lbl = QLabel("  Vel")
+        vel_lbl.setStyleSheet(_LBL)
         tb.addWidget(vel_lbl)
 
         _speeds = [("0.25×", 0.25), ("0.5×", 0.5), ("1×", 1.0),
                    ("2×", 2.0), ("5×", 5.0), ("10×", 10.0)]
         speed_combo = QComboBox()
         speed_combo.addItems([s for s, _ in _speeds])
-        speed_combo.setCurrentIndex(2)   # 1× por defecto
+        speed_combo.setCurrentIndex(2)
         speed_combo.setToolTip("Velocidad de movimiento WASD / Shift / Ctrl")
-        speed_combo.setStyleSheet(
-            "QComboBox { background: #282828; color: #ccc;"
-            "  border: 1px solid #3a3a3a; padding: 3px 8px;"
-            "  border-radius: 4px; min-width: 56px; }"
-            "QComboBox::drop-down { border: none; }"
-            "QComboBox QAbstractItemView { background: #252525; color: #dcdcdc;"
-            "  selection-background-color: #4a7cb8; }"
-        )
+        speed_combo.setStyleSheet(_COMBO + "QComboBox { min-width: 54px; }")
         speed_combo.currentIndexChanged.connect(
             lambda idx: setattr(self.viewport, '_camera_speed', _speeds[idx][1])
         )
@@ -124,19 +168,12 @@ class MainWindow(QMainWindow):
 
         # ── Previsualizar desde cámara ────────────────────────────────
         tb.addSeparator()
-        cam_lbl = QLabel("  Vista:")
-        cam_lbl.setStyleSheet("color: #aaa; padding: 0 2px;")
+        cam_lbl = QLabel("  Vista")
+        cam_lbl.setStyleSheet(_LBL)
         tb.addWidget(cam_lbl)
         self._cam_combo = QComboBox()
         self._cam_combo.setToolTip("Previsualizar desde esta cámara (solo editor)")
-        self._cam_combo.setStyleSheet(
-            "QComboBox { background: #282828; color: #ccc;"
-            "  border: 1px solid #3a3a3a; padding: 3px 8px;"
-            "  border-radius: 4px; min-width: 100px; }"
-            "QComboBox::drop-down { border: none; }"
-            "QComboBox QAbstractItemView { background: #252525; color: #dcdcdc;"
-            "  selection-background-color: #4a7cb8; }"
-        )
+        self._cam_combo.setStyleSheet(_COMBO + "QComboBox { min-width: 110px; }")
         self._cam_combo.addItem("Cámara editor", userData=None)
         self._cam_combo.currentIndexChanged.connect(self._on_camera_combo_changed)
         tb.addWidget(self._cam_combo)
@@ -682,11 +719,13 @@ class MainWindow(QMainWindow):
 
     def log(self, message: str, level: str = "info"):
         colors = {
-            "info":  "#6b9cff",
-            "ok":    "#5fbf5f",
-            "warn":  "#d9a550",
-            "error": "#e05a5a",
-            "muted": "#888888",
+            "info":  "#6c84d4",
+            "ok":    "#4ade80",
+            "warn":  "#fbbf24",
+            "error": "#f87171",
+            "muted": "#3a3a58",
         }
-        color = colors.get(level, "#dcdcdc")
-        self.consoleOutput.append(f"<span style='color:{color}'>{message}</span>")
+        color = colors.get(level, "#9090b0")
+        self.consoleOutput.append(
+            f"<span style='color:{color}; font-family: Consolas, monospace;'>{message}</span>"
+        )
