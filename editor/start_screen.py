@@ -76,11 +76,15 @@ class _RecentItem(QFrame):
         )
         lay.addWidget(name_lbl)
 
-        meta = QLabel(f"{entry.get('date', '')}  ·  {entry['path']}")
+        # Truncar la ruta si es muy larga (QLabel no tiene setElideMode)
+        raw_path = entry['path']
+        max_chars = 55
+        if len(raw_path) > max_chars:
+            raw_path = "…" + raw_path[-(max_chars - 1):]
+        meta = QLabel(f"{entry.get('date', '')}  ·  {raw_path}")
         meta.setStyleSheet(
             "color: #40405a; font-size: 10px; border: none; background: transparent;"
         )
-        meta.setElideMode(Qt.TextElideMode.ElideMiddle)
         lay.addWidget(meta)
 
     def mousePressEvent(self, event):
